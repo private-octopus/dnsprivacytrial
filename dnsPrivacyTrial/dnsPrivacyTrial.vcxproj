@@ -146,6 +146,7 @@
     <ClInclude Include="DnsTraces.h" />
     <ClInclude Include="DnsTracesUtil.h" />
     <ClInclude Include="DnsTransaction.h" />
+    <ClInclude Include="DnsTypes.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -153,6 +154,7 @@
     <ClCompile Include="DnsDissectorLine.cpp" />
     <ClCompile Include="dnsPrivacyTrial.cpp" />
     <ClCompile Include="DnsTraces.cpp" />
+    <ClCompile Include="DnsTracesUtil.cpp" />
     <ClCompile Include="DnsTransaction.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>

@@ -1,22 +1,5 @@
 #pragma once
 
-/*
-template <typename TUINT, UINT CODELENGTH = sizeof(TUINT)>
-void TlsEncodeInt(TUINT x, _Out_writes_(CODELENGTH) BYTE* message)
-{
-    TUINT r = x;
-
-    for (UINT i = CODELENGTH; i > 0;)
-    {
-        i--;
-        message[i] = (BYTE)(r & 255);
-        r >>= 8;
-    }
-}
-
-template<>
-void TlsEncodeInt<BYTE>(BYTE x, _Out_writes_(1) BYTE* message);
-*/
 
 template <typename OBJTYPE>
 bool CheckArrayAllocation(int n, int * allocated, int nbStored, OBJTYPE*** storedArray)
@@ -222,7 +205,8 @@ private:
             }
             else if (hash_table[hash_bucket].Compare(key))
             {
-                ret = hash_table[hash_bucket].Merge(key);
+                hash_table[hash_bucket].Merge(key);
+                ret = hash_table[hash_bucket];
                 break;
             }
             else
@@ -239,3 +223,10 @@ private:
     }
 };
 
+char * CopyString(const char * s);
+
+unsigned int BasicHash(unsigned int h, const unsigned char * x, unsigned int l);
+
+unsigned int BasicHash(unsigned int h, int x);
+
+unsigned int BasicHash(unsigned int h, const char * s);

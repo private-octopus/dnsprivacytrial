@@ -16,6 +16,8 @@
  * - Address found
  * This is obtained by merging several traces into a single list.
  */
+#include "DnsTypes.h"
+#include "DnsDissectorLine.h"
 
 class DnsTransaction
 {
@@ -23,8 +25,27 @@ public:
     DnsTransaction();
     ~DnsTransaction();
 
+    void InitializeFromTrace(DnsDissectorLine * trace);
+
     int Hash();
     bool Compare(DnsTransaction * key);
-    DnsTransaction * Merge(DnsTransaction * key);
+    void Merge(DnsTransaction * key);
+
+private:
+    char * clientIp;
+    char * serverIp;
+    int query_id;
+    long long initial_time;
+    char * query_name;
+    DnsRtype query_rtype;
+    int nb_repeats;
+    long long last_repeat_time;
+    int nb_response;
+    long long  first_response_time;
+    int cname_count;
+    char * cname;
+    int query_length;
+    int response_length;
+    char * a_val;
 };
 
