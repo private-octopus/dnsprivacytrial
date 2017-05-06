@@ -1,16 +1,45 @@
+/*
+* Copyright (c) 2017, Private Octopus, Inc.
+* All rights reserved.
+*
+* Permission to use, copy, modify, and distribute this software for any
+* purpose with or without fee is hereby granted, provided that the above
+* copyright notice and this permission notice appear in all copies.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL Private Octopus, Inc. BE LIABLE FOR ANY
+* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #pragma once
 #include <string.h>
 
 template <typename OBJTYPE>
-bool CheckArrayAllocation(int n, int * allocated, int nbStored, OBJTYPE*** storedArray)
+bool CheckArrayAllocation(int n, int * allocated, int nbStored, 
+    OBJTYPE*** storedArray)
 {
     bool ret = true;
 
-    if (*allocated <= n || *storedArray == NULL)
+    if (*storedArray == NULL && nbStored > 0)
+    {
+        ret = false;
+    }
+    else if (nbStored > *allocated)
+    {
+        ret = false;
+    }
+    else if (*allocated <= n || *storedArray == NULL)
     {
         int na = (*allocated == 0) ? 128 : *allocated;
 
-        while (na <= n)
+        while (na <= n || na < nbStored)
         {
             na = 2 * na;
         }
@@ -146,8 +175,8 @@ public:
 private:
     bool ResizeTable() {
         bool ret = true;
-        int new_size = 0;
-        int new_count = index_count + 1;
+        unsigned int new_size = 0;
+        unsigned int new_count = index_count + 1;
         OBJTYPE ** new_table;
 
         if (new_count * 2 > table_size)
@@ -209,7 +238,7 @@ private:
         unsigned int hash_bucket = key->Hash()%table_size;
         OBJTYPE * ret = NULL;
 
-        for (int i = 0; ret == false && i < table_size; i++)
+        for (unsigned int i = 0; ret == false && i < table_size; i++)
         {
             if (hash_table[hash_bucket] == NULL)
             {
