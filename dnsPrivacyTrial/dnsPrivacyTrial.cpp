@@ -27,15 +27,25 @@ int main(int argc, char* argv[])
 
     DnsTraces dt;
     char * fname = "TestInput.txt";
+    char * oname = "TestOutput.csv";
 
     if (argc >= 2)
     {
         fname = argv[1];
     }
 
+    if (argc >= 3)
+    {
+        oname = argv[2];
+    }
+
     int ret = dt.AddTraces(fname);
 
     printf("Loaded %d traces from %s, ret = %d\n", dt.getNbTraces(), fname, ret);
+
+    ret = dt.SaveTransactionsToCsv(oname);
+
+    printf("Saved transactions to %s, ret = %d\n", oname, ret);
 
     return 0;
 }

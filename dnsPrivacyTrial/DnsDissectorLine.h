@@ -54,6 +54,8 @@ public:
         return  a_val;
     };
 
+    static const char * RTypeToText(DnsRtype v);
+
 private:
     int number;
     long long time;

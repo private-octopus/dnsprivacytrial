@@ -276,7 +276,8 @@ static struct dns_rtype_list {
     { DnsRtype_SRV, "SRV"},
     { DnsRtype_OPT, "OPT"},
     { DnsRtype_TSIG, "TSIG"},
-    { DnsRtype_ANY, "ANY"}
+    { DnsRtype_ANY, "ANY"},
+    { DnsRtype_UNEXPECTED, "UNEXPECTED" }
 };
 
 static int rtype_list_count = sizeof(rtype_list) / sizeof(struct dns_rtype_list);
@@ -294,7 +295,7 @@ int DnsDissectorLine::ParseRType(char * line, int linemax, int position, DnsRtyp
 
     if (nb_chars > 0)
     {
-        for (int i = 0; i < nb_chars; i++)
+        for (int i = 0; i < rtype_list_count; i++)
         {
             if (strlen(rtype_list[i].rtype_name) == nb_chars &&
                 strncmp(line + first_position, rtype_list[i].rtype_name, nb_chars) == 0)
@@ -306,6 +307,22 @@ int DnsDissectorLine::ParseRType(char * line, int linemax, int position, DnsRtyp
     }
 
     return position;
+}
+
+const char * DnsDissectorLine::RTypeToText(DnsRtype v)
+{
+    char * s = "UNKNOWN";
+
+    for (int i = 0; i < rtype_list_count; i++)
+    {
+        if (rtype_list[i].rtype == v)
+        {
+            s = rtype_list[i].rtype_name;
+            break;
+        }
+    }
+
+    return (const char *) s;
 }
 
 int DnsDissectorLine::ParseSpacedString(char * line, int linemax, int position, char ** s)

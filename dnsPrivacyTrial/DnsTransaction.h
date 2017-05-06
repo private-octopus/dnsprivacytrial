@@ -16,6 +16,7 @@
  * - Address found
  * This is obtained by merging several traces into a single list.
  */
+#include <stdio.h>
 #include "DnsTypes.h"
 #include "DnsDissectorLine.h"
 
@@ -27,9 +28,12 @@ public:
 
     void InitializeFromTrace(DnsDissectorLine * trace);
 
-    int Hash();
+    unsigned int Hash();
     bool Compare(DnsTransaction * key);
     void Merge(DnsTransaction * key);
+
+    static void PrintCsvFileHeader(FILE* F);
+    int PrintToCsvFile(FILE* F) const;
 
 private:
     char * clientIp;

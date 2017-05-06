@@ -31,7 +31,7 @@ char * CopyString(const char * s)
 
 unsigned int BasicHash(unsigned int h, const unsigned char * x, unsigned int l)
 {
-    for (int i = 0; i < l; i++)
+    for (unsigned int i = 0; i < l; i++)
     {
         unsigned int r = h >> 24;
         h <<= 8;

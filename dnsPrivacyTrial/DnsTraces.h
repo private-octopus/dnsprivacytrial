@@ -23,6 +23,7 @@ public:
     ~DnsTraces();
 
     int AddTraces(char * fname);
+    int SaveTransactionsToCsv(char * fname);
 
     DnsDissectorLine ** getTraces();
     int getNbTraces();

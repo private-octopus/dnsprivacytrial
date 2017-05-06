@@ -1,16 +1,16 @@
 #pragma once
-
+#include <string.h>
 
 template <typename OBJTYPE>
 bool CheckArrayAllocation(int n, int * allocated, int nbStored, OBJTYPE*** storedArray)
 {
     bool ret = true;
 
-    if (*allocated < n)
+    if (*allocated <= n || *storedArray == NULL)
     {
         int na = (*allocated == 0) ? 128 : *allocated;
 
-        while (na < n)
+        while (na <= n)
         {
             na = 2 * na;
         }
@@ -51,10 +51,13 @@ template <typename OBJTYPE>
 void TArrayDelete(OBJTYPE** v, int v_size) {
     if (v != NULL)
     {
-        for (int i = 0; i < v_size; v++)
+        for (int i = 0; i < v_size; i++)
         {
-            delete v[i];
-            v[i] = NULL;
+            if (v[i] != NULL)
+            {
+                delete v[i];
+                v[i] = NULL;
+            }
         }
 
         delete[] v;
@@ -66,8 +69,8 @@ template <typename OBJTYPE>
 class THashTable
 {
 private:
-    int table_size;
-    int index_count;
+    unsigned int table_size;
+    unsigned int index_count;
     OBJTYPE ** hash_table;
 
 public:
@@ -92,7 +95,7 @@ public:
         {
             unsigned int hash = key->Hash();
 
-            int hash_bucket = hash%table_size;
+            unsigned int hash_bucket = hash%table_size;
 
             for (int i = 0; ret == false && i < table_size; i++)
             {
@@ -131,6 +134,14 @@ public:
 
         return ret;
     }
+
+    const OBJTYPE ** HashTable() { 
+        return (const OBJTYPE **) hash_table;
+    };
+
+    const unsigned int TableSize() {
+        return (const unsigned int) table_size;
+    };
 
 private:
     bool ResizeTable() {
@@ -181,6 +192,8 @@ private:
                             {
                                 ret = false;
                             }
+                            
+                            old_table[i] = NULL;
                         }
                     }
 
@@ -193,7 +206,7 @@ private:
     }
 
     OBJTYPE * DoInsertOrMerge(OBJTYPE * key) {
-        int hash_bucket = key->Hash()%table_size;
+        unsigned int hash_bucket = key->Hash()%table_size;
         OBJTYPE * ret = NULL;
 
         for (int i = 0; ret == false && i < table_size; i++)
@@ -201,11 +214,12 @@ private:
             if (hash_table[hash_bucket] == NULL)
             {
                 hash_table[hash_bucket] = key;
+                index_count++;
                 ret = key;
             }
-            else if (hash_table[hash_bucket].Compare(key))
+            else if (hash_table[hash_bucket]->Compare(key))
             {
-                hash_table[hash_bucket].Merge(key);
+                hash_table[hash_bucket]->Merge(key);
                 ret = hash_table[hash_bucket];
                 break;
             }

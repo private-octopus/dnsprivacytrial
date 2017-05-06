@@ -156,6 +156,7 @@
     <ClCompile Include="DnsTraces.cpp" />
     <ClCompile Include="DnsTracesUtil.cpp" />
     <ClCompile Include="DnsTransaction.cpp" />
+    <ClCompile Include="DnsTypes.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

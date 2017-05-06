@@ -40,8 +40,14 @@ int DnsTraces::AddTraces(char * fname)
             {
                 if (CheckAllocation(nb_records + 1))
                 {
+                    DnsTransaction * tr = new DnsTransaction();
+
                     dnsSet[nb_records] = ds;
                     nb_records++;
+
+                    tr->InitializeFromTrace(ds);
+
+                    transactions.InsertOrMerge(tr);
                 }
                 else
                 {
@@ -52,6 +58,33 @@ int DnsTraces::AddTraces(char * fname)
             }
         }
 
+        fclose(F);
+    }
+
+    return ret;
+}
+
+int DnsTraces::SaveTransactionsToCsv(char * fname)
+{
+    int ret = 0;
+    FILE * F;
+    errno_t er = fopen_s(&F, fname, "w");
+
+    if (er != 0 || F == NULL)
+    {
+        ret = -1;
+    }
+    else
+    {
+        DnsTransaction::PrintCsvFileHeader(F);
+
+        for (unsigned int i = 0; i < transactions.TableSize(); i++)
+        {
+            if (transactions.HashTable()[i] != NULL)
+            {
+                (void)transactions.HashTable()[i]->PrintToCsvFile(F);
+            }
+        }
         fclose(F);
     }
 

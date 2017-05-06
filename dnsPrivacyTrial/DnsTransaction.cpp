@@ -22,7 +22,8 @@ DnsTransaction::DnsTransaction()
     cname_count(0),
     cname(NULL),
     query_length(0),
-    response_length(0)
+    response_length(0),
+    a_val(NULL)
 {
 }
 
@@ -35,7 +36,7 @@ DnsTransaction::~DnsTransaction()
 
     if (serverIp != NULL)
     {
-        delete[] clientIp;
+        delete[] serverIp;
     }
 
     if (query_name != NULL)
@@ -77,9 +78,9 @@ void DnsTransaction::InitializeFromTrace(DnsDissectorLine * trace)
     }
 }
 
-int DnsTransaction::Hash()
+unsigned int DnsTransaction::Hash()
 {
-    int h = 0xDEADBEEF;
+    unsigned int h = 0xDEADBEEF;
 
     h = BasicHash(h, clientIp);
     h = BasicHash(h, serverIp);
@@ -140,4 +141,27 @@ void DnsTransaction::Merge(DnsTransaction * key)
     }
 
     delete key;
+}
+
+void DnsTransaction::PrintCsvFileHeader(FILE * F)
+{
+    fprintf(F, "clientIp, serverIp, query_id, initial_time, query_name, query_rtype, ");
+    fprintf(F, "nb_repeats, last_repeat_time, nb_response, first_response_time, ");
+    fprintf(F, "cname_count, cname, query_length, response_length, a_val, response_time, repeat_time\n");
+}
+
+int DnsTransaction::PrintToCsvFile(FILE * F) const
+{
+    const char * rtype_name = DnsDissectorLine::RTypeToText(query_rtype);
+    int ret = fprintf(F,
+        """%s"",""%s"",""%d"",""%lld"",""%s"",""%s"",""%d"",""%lld"",""%d"",""%lld"",""%d"",""%s"",""%d"",""%d"",""%s"", ""%lld"", ""%lld""\n",
+        clientIp, serverIp, query_id, initial_time, query_name, rtype_name,
+        nb_repeats, last_repeat_time, nb_response, first_response_time,
+        cname_count, (cname == NULL) ? "" : cname, query_length, response_length,
+        (a_val == NULL) ? "" : a_val, 
+        (first_response_time > 0)? first_response_time- initial_time:0,
+        (last_repeat_time > 0) ? last_repeat_time - initial_time : 0);
+
+
+    return (ret > 0)?0:-1;
 }
