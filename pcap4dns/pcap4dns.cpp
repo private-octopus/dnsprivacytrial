@@ -7,7 +7,7 @@
 #include "DnsStats.h"
 
 
-int main()
+int main(int argc, char ** argv)
 {
     pcap_reader reader;
     int nb_records_read = 0;
@@ -18,6 +18,15 @@ int main()
     char * inputFile = "smalltest.pcap";
     char * csv_file = "smalltest.csv";
 
+    if (argc > 1)
+    {
+        inputFile = argv[1];
+
+        if (argc > 2)
+        {
+            csv_file = argv[2];
+        }
+    }
 
     if (reader.Open(inputFile))
     {
