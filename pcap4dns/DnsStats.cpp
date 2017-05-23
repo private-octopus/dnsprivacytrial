@@ -308,7 +308,7 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     }
 }
 
-char * RegistryNameById[] = {
+char const * RegistryNameById[] = {
     "0",
     "CLASS",
     "RR Type",
@@ -328,7 +328,7 @@ char * RegistryNameById[] = {
     "Q-RR Type"
 };
 
-uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char*);
+uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
 
 bool DnsStats::ExportToCsv(char * fileName)
 {
