@@ -333,7 +333,7 @@ uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
 bool DnsStats::ExportToCsv(char * fileName)
 {
     FILE* F;
-    errno_t err = fopen_s(&F, fileName, "w");
+    int err = fopen_s(&F, fileName, "w");
     bool ret = (err == 0);
     dns_registry_entry_t *entry;
 
@@ -535,7 +535,7 @@ void DnsStats::SubmitRegistryString(uint32_t registry_id, uint32_t length, uint8
     }
 }
 
-char *  rrtype_1_62[] = {
+char const *  rrtype_1_62[] = {
     "A",
     "NS",
     "MD",
@@ -614,7 +614,7 @@ char *  rrtype_99_109[] = {
     "EUI64"
 };
 
-char *  rrtype_249_258[] = {
+char const *  rrtype_249_258[] = {
     "TKEY",
     "TSIG",
     "IXFR",
@@ -627,7 +627,7 @@ char *  rrtype_249_258[] = {
     "AVC"
 };
 
-char *  rrtype_32768_32769[] = {
+char const *  rrtype_32768_32769[] = {
     "TA",
     "DLV"
 };
@@ -656,7 +656,7 @@ void DnsStats::PrintRRType(FILE * F, uint32_t rrtype)
     }
 }
 
-char * dns_flags_id[] = {
+char const * dns_flags_id[] = {
     "CD",
     "AD",
     "bit 9",
