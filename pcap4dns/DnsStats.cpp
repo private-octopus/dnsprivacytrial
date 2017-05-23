@@ -333,9 +333,18 @@ uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
 bool DnsStats::ExportToCsv(char * fileName)
 {
     FILE* F;
-    int err = fopen_s(&F, fileName, "w");
-    bool ret = (err == 0);
     dns_registry_entry_t *entry;
+#ifdef WINDOWS
+    errno_t err = fopen_s(&F, fileName, "w");
+    bool ret = (err == 0);
+#else
+    bool ret;
+
+    F = fopen(fileName, "w");
+    ret = (F != NULL);
+#endif
+
+
 
     if (ret)
     {
@@ -600,7 +609,7 @@ char const *  rrtype_1_62[] = {
     "CSYNC"
 };
 
-char *  rrtype_99_109[] = {
+char const * rrtype_99_109[] = {
     "SPF",
     "UINFO",
     "UID",

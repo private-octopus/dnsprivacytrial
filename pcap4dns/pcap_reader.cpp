@@ -41,7 +41,12 @@ bool pcap_reader::Open(char * f_name)
     }
     else
     {
+#ifdef WINDOWS
         errno_t err = fopen_s(&F_pcap, f_name, "rb");
+#else
+        F_pcap = fopen(f_name, "rb");
+        int err = (F_pcap == NULL) ? -1 : 0;
+#endif
 
         if (err != 0)
         {
