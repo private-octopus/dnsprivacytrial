@@ -58,18 +58,11 @@ public:
     bool Resize(unsigned tableSize);
     bool InsertOrAdd(dns_registry_entry_t * key, bool need_alloc=true);
 
-    uint32_t GetCount() {
-        return tableCount;
-    }
+    uint32_t GetCount();
 
-    uint32_t GetSize() {
-        return tableSize;
-    }
+    uint32_t GetSize();
 
-    dns_registry_entry_t * GetEntry(uint32_t indx)
-    {
-        return (indx < tableSize) ? hashTable[indx] : NULL;
-    }
+    dns_registry_entry_t * GetEntry(uint32_t indx);
 
 private:
     uint32_t tableSize;

@@ -122,6 +122,19 @@ bool DnsStatHash::InsertOrAdd(dns_registry_entry_t* key, bool need_alloc)
     return ret;
 }
 
+uint32_t DnsStatHash::GetCount() {
+    return tableCount;
+}
+
+uint32_t DnsStatHash::GetSize() {
+    return tableSize;
+}
+
+dns_registry_entry_t * DnsStatHash::GetEntry(uint32_t indx)
+{
+    return (indx < tableSize) ? hashTable[indx] : NULL;
+}
+
 bool DnsStatHash::DoInsert(dns_registry_entry_t* key, bool need_alloc)
 {
     bool ret = false;
