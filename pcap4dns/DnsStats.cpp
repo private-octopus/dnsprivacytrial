@@ -228,98 +228,6 @@ DnsStats::~DnsStats()
 {
 }
 
-/*
- * Examine the packet level information
- * 
- * - DNS OpCodes
- * - DNS RCodes
- * - DNS Header Flags
- *
- * Analyze queries and responses.
- * Special cases for TXT, KEY, CSYNC
- * 
-
- 1  1  1  1  1  1
- 0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |                      ID                       |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |                    QDCOUNT                    |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |                    ANCOUNT                    |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |                    NSCOUNT                    |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- |                    ARCOUNT                    |
- +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- */
-
-void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
-{
-    bool is_response;
-    uint32_t flags = 0;
-    uint32_t opcode = 0;
-    uint32_t rcode = 0;
-    uint32_t qdcount = 0;
-    uint32_t ancount = 0;
-    uint32_t nscount = 0;
-    uint32_t arcount = 0;
-    uint32_t parse_index = 0;
-
-    if (length < 12)
-    {
-        return;
-    }
-
-    is_response = ((packet[2] & 128) != 0);
-    flags = ((packet[2] & 7) << 4) | ((packet[3] & 15) >> 4);
-    opcode = (packet[2] >> 3) & 15;
-    rcode = (packet[3] & 15);
-    qdcount = (packet[4] << 8) | packet[5];
-    ancount = (packet[6] << 8) | packet[7];
-    nscount = (packet[8] << 8) | packet[9];
-    arcount = (packet[10] << 8) | packet[11];
-
-    SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
-
-    if (is_response)
-    {
-        SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
-    }
-
-    for (uint32_t i = 0; i < 7; i++)
-    {
-        if ((flags & (1 << i)) != 0)
-        {
-            SubmitRegistryNumber(REGISTRY_DNS_Header_Flags, i);
-        }
-    }
-    
-    parse_index = 12;
-
-    for (uint32_t i = 0; i < qdcount; i++)
-    {
-        parse_index = SubmitQuery(packet, length, parse_index);
-    }
-
-    for (uint32_t i = 0; i < ancount; i++)
-    {
-        parse_index = SubmitRecord(packet, length, parse_index);
-    }
-
-    for (uint32_t i = 0; i < nscount; i++)
-    {
-        parse_index = SubmitRecord(packet, length, parse_index);
-    }
-
-    for (uint32_t i = 0; i < arcount; i++)
-    {
-        parse_index = SubmitRecord(packet, length, parse_index);
-    }
-}
-
 static char const * RegistryNameById[] = {
     "0",
     "CLASS",
@@ -341,68 +249,6 @@ static char const * RegistryNameById[] = {
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
-
-bool DnsStats::ExportToCsv(char * fileName)
-{
-    FILE* F;
-    dns_registry_entry_t *entry;
-#ifdef WINDOWS
-    errno_t err = fopen_s(&F, fileName, "w");
-    bool ret = (err == 0);
-#else
-    bool ret;
-
-    F = fopen(fileName, "w");
-    ret = (F != NULL);
-#endif
-
-
-
-    if (ret)
-    {
-        for (uint32_t i = 0; i < hashTable.GetSize(); i++)
-        {
-            entry = hashTable.GetEntry(i);
-
-            if (entry != NULL)
-            {
-                if (entry->registry_id < RegistryNameByIdNb)
-                {
-                    fprintf(F, """%s"",", RegistryNameById[entry->registry_id]);
-                }
-                else
-                {
-                    fprintf(F, """%d"",", entry->registry_id);
-                }
-
-                if (entry->registry_id == REGISTRY_DNS_RRType ||
-                    entry->registry_id == REGISTRY_DNS_Q_RRType)
-                {
-                    PrintRRType(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
-                {
-                    PrintDnsFlags(F, entry->key_number);
-                }
-                else if (entry->key_type == 0)
-                {
-                    fprintf(F, """%d"",", entry->key_number);
-                }
-                else
-                {
-                    fprintf(F, """%s,""", entry->key_value);
-                }
-
-                fprintf(F, """%d""\n", entry->count);
-            }
-        }
-
-        fclose(F);
-    }
-
-
-    return ret;
-}
 
 int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start)
 {
@@ -698,3 +544,159 @@ void DnsStats::PrintDnsFlags(FILE * F, uint32_t flag)
         fprintf(F, """ %d"",", flag);
     }
 }
+
+
+/*
+* Examine the packet level information
+*
+* - DNS OpCodes
+* - DNS RCodes
+* - DNS Header Flags
+*
+* Analyze queries and responses.
+* Special cases for TXT, KEY, CSYNC
+*
+
+1  1  1  1  1  1
+0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                      ID                       |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    QDCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    ANCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    NSCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    ARCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*/
+
+void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
+{
+    bool is_response;
+    uint32_t flags = 0;
+    uint32_t opcode = 0;
+    uint32_t rcode = 0;
+    uint32_t qdcount = 0;
+    uint32_t ancount = 0;
+    uint32_t nscount = 0;
+    uint32_t arcount = 0;
+    uint32_t parse_index = 0;
+
+    if (length < 12)
+    {
+        return;
+    }
+
+    is_response = ((packet[2] & 128) != 0);
+    flags = ((packet[2] & 7) << 4) | ((packet[3] & 15) >> 4);
+    opcode = (packet[2] >> 3) & 15;
+    rcode = (packet[3] & 15);
+    qdcount = (packet[4] << 8) | packet[5];
+    ancount = (packet[6] << 8) | packet[7];
+    nscount = (packet[8] << 8) | packet[9];
+    arcount = (packet[10] << 8) | packet[11];
+
+    SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
+
+    if (is_response)
+    {
+        SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
+    }
+
+    for (uint32_t i = 0; i < 7; i++)
+    {
+        if ((flags & (1 << i)) != 0)
+        {
+            SubmitRegistryNumber(REGISTRY_DNS_Header_Flags, i);
+        }
+    }
+
+    parse_index = 12;
+
+    for (uint32_t i = 0; i < qdcount; i++)
+    {
+        parse_index = SubmitQuery(packet, length, parse_index);
+    }
+
+    for (uint32_t i = 0; i < ancount; i++)
+    {
+        parse_index = SubmitRecord(packet, length, parse_index);
+    }
+
+    for (uint32_t i = 0; i < nscount; i++)
+    {
+        parse_index = SubmitRecord(packet, length, parse_index);
+    }
+
+    for (uint32_t i = 0; i < arcount; i++)
+    {
+        parse_index = SubmitRecord(packet, length, parse_index);
+    }
+}
+
+bool DnsStats::ExportToCsv(char * fileName)
+{
+    FILE* F;
+    dns_registry_entry_t *entry;
+#ifdef WINDOWS
+    errno_t err = fopen_s(&F, fileName, "w");
+    bool ret = (err == 0);
+#else
+    bool ret;
+
+    F = fopen(fileName, "w");
+    ret = (F != NULL);
+#endif
+
+
+
+    if (ret)
+    {
+        for (uint32_t i = 0; i < hashTable.GetSize(); i++)
+        {
+            entry = hashTable.GetEntry(i);
+
+            if (entry != NULL)
+            {
+                if (entry->registry_id < RegistryNameByIdNb)
+                {
+                    fprintf(F, """%s"",", RegistryNameById[entry->registry_id]);
+                }
+                else
+                {
+                    fprintf(F, """%d"",", entry->registry_id);
+                }
+
+                if (entry->registry_id == REGISTRY_DNS_RRType ||
+                    entry->registry_id == REGISTRY_DNS_Q_RRType)
+                {
+                    PrintRRType(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
+                {
+                    PrintDnsFlags(F, entry->key_number);
+                }
+                else if (entry->key_type == 0)
+                {
+                    fprintf(F, """%d"",", entry->key_number);
+                }
+                else
+                {
+                    fprintf(F, """%s,""", entry->key_value);
+                }
+
+                fprintf(F, """%d""\n", entry->count);
+            }
+        }
+
+        fclose(F);
+    }
+
+
+    return ret;
+}
+
