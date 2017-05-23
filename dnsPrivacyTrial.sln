@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26127.0
+VisualStudioVersion = 15.0.26228.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dnsPrivacyTrial", "dnsPrivacyTrial\dnsPrivacyTrial.vcxproj", "{231D0836-86AE-4CD7-A0E4-D3157307A75C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CFDProduct", "CFDProduct\CFDProduct.vcxproj", "{F8738647-E9E2-410A-B7D3-03A0C6F85CED}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pcap4dns", "pcap4dns\pcap4dns.vcxproj", "{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "udpdnsrand", "udpdnsrand\udpdnsrand.vcxproj", "{D06BE115-05DC-4943-846C-FCD1A1A5348D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,14 +25,22 @@ Global
 		{231D0836-86AE-4CD7-A0E4-D3157307A75C}.Release|x64.Build.0 = Release|x64
 		{231D0836-86AE-4CD7-A0E4-D3157307A75C}.Release|x86.ActiveCfg = Release|Win32
 		{231D0836-86AE-4CD7-A0E4-D3157307A75C}.Release|x86.Build.0 = Release|Win32
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Debug|x64.ActiveCfg = Debug|x64
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Debug|x64.Build.0 = Debug|x64
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Debug|x86.ActiveCfg = Debug|Win32
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Debug|x86.Build.0 = Debug|Win32
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Release|x64.ActiveCfg = Release|x64
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Release|x64.Build.0 = Release|x64
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Release|x86.ActiveCfg = Release|Win32
-		{F8738647-E9E2-410A-B7D3-03A0C6F85CED}.Release|x86.Build.0 = Release|Win32
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Debug|x64.ActiveCfg = Debug|x64
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Debug|x64.Build.0 = Debug|x64
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Debug|x86.ActiveCfg = Debug|Win32
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Debug|x86.Build.0 = Debug|Win32
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Release|x64.ActiveCfg = Release|x64
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Release|x64.Build.0 = Release|x64
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Release|x86.ActiveCfg = Release|Win32
+		{6F7D9829-A7EE-4ABF-80F7-2B8043BDAFC2}.Release|x86.Build.0 = Release|Win32
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Debug|x64.ActiveCfg = Debug|x64
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Debug|x64.Build.0 = Debug|x64
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Debug|x86.ActiveCfg = Debug|Win32
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Debug|x86.Build.0 = Debug|Win32
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Release|x64.ActiveCfg = Release|x64
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Release|x64.Build.0 = Release|x64
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Release|x86.ActiveCfg = Release|Win32
+		{D06BE115-05DC-4943-846C-FCD1A1A5348D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
