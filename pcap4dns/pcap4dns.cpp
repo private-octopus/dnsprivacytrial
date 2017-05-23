@@ -1,7 +1,11 @@
 // pcap4dns.cpp : Defines the entry point for the console application.
 //
 
+#ifdef WINDOWS
 #include "stdafx.h"
+#else
+#include "stdio.h"
+#endif
 
 #include "pcap_reader.h"
 #include "DnsStats.h"
@@ -15,8 +19,8 @@ int main()
     bool found_v6 = false;
     DnsStats stats;
     int nb_udp_dns = 0;
-    char * inputFile = "smalltest.pcap";
-    char * csv_file = "smalltest.csv";
+    char * inputFile = (char *) "smalltest.pcap";
+    char * csv_file = (char *) "smalltest.csv";
 
 
     if (reader.Open(inputFile))
