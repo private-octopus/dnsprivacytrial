@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PCAP_READER_H
+#define PCAP_READER_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -49,3 +50,4 @@ private:
 
 };
 
+#endif /* PCAP_READER_H */

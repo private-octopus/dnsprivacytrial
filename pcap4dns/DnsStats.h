@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DNSSTAT_H
+#define DNSSTAT_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -106,3 +107,4 @@ private:
 
 };
 
+#endif /* DNSTAT_H */

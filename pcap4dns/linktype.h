@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LINKTYPE_H
+#define LINKTYPE_H
 
 #define	LINKTYPE_NULL	0
 #define	LINKTYPE_ETHERNET	1
@@ -93,3 +94,5 @@
 #define	LINKTYPE_RDS	265
 #define	LINKTYPE_USB_DARWIN	266
 #define	LINKTYPE_SDLC	268
+
+#endif /* LINKTYPE_H */
