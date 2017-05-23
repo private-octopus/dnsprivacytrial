@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include "DnsStats.h"
 
-
 DnsStatHash::DnsStatHash()
     :
     tableSize(0),
@@ -308,7 +307,7 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     }
 }
 
-char const * RegistryNameById[] = {
+static char const * RegistryNameById[] = {
     "0",
     "CLASS",
     "RR Type",
@@ -328,7 +327,7 @@ char const * RegistryNameById[] = {
     "Q-RR Type"
 };
 
-uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
+static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
 
 bool DnsStats::ExportToCsv(char * fileName)
 {
@@ -544,7 +543,7 @@ void DnsStats::SubmitRegistryString(uint32_t registry_id, uint32_t length, uint8
     }
 }
 
-char const *  rrtype_1_62[] = {
+static char const *  rrtype_1_62[] = {
     "A",
     "NS",
     "MD",
@@ -609,7 +608,7 @@ char const *  rrtype_1_62[] = {
     "CSYNC"
 };
 
-char const * rrtype_99_109[] = {
+static char const * rrtype_99_109[] = {
     "SPF",
     "UINFO",
     "UID",
@@ -623,7 +622,7 @@ char const * rrtype_99_109[] = {
     "EUI64"
 };
 
-char const *  rrtype_249_258[] = {
+static char const *  rrtype_249_258[] = {
     "TKEY",
     "TSIG",
     "IXFR",
@@ -636,7 +635,7 @@ char const *  rrtype_249_258[] = {
     "AVC"
 };
 
-char const *  rrtype_32768_32769[] = {
+static char const *  rrtype_32768_32769[] = {
     "TA",
     "DLV"
 };
@@ -665,7 +664,7 @@ void DnsStats::PrintRRType(FILE * F, uint32_t rrtype)
     }
 }
 
-char const * dns_flags_id[] = {
+static char const * dns_flags_id[] = {
     "CD",
     "AD",
     "bit 9",
