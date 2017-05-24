@@ -67,7 +67,7 @@ bool DomainList::Init(char * namelist)
     return ret;
 }
 
-const char * DomainList::GetRandomDomain() 
+char const * DomainList::GetRandomDomain() 
 {
     char * s = NULL;
     uint32_t hash = r.GetRandom();

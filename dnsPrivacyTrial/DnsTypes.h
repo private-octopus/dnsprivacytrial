@@ -41,7 +41,7 @@ enum DnsRtype {
     DnsRtype_SRV = 33, /* Service record */
     DnsRtype_OPT = 41, /* EDNS0 OPT record */
     DnsRtype_DNSKEY = 48, /* DNSSEC KEY */
-    DnsRtype_TLSA = 52, /* DANA Certificate */ 
+    DnsRtype_TLSA = 52, /* DANE Certificate */ 
     DnsRtype_TSIG = 250, /* Transaction Signature */
     DnsRtype_ANY = 255, /*Not a DNS type, but a DNS query type, meaning "all types"*/
     DnsRtype_UNEXPECTED = 0 /*Not a DNS type, indicates a parsing error */

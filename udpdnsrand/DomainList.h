@@ -21,7 +21,7 @@ public:
 
     bool Init(char * namelist); /* init generation with list of names */
 
-    const char * GetRandomDomain();
+    char const * GetRandomDomain();
 
     // bool SubmitNewName(char * domainName);
 
