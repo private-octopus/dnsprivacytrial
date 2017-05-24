@@ -21,7 +21,9 @@
 // * bookkeeping. Should this use the same dns stats as pcap analyzer?
 //
 
+#ifdef WINDOWS
 #include "stdafx.h"
+#endif
 
 
 int main()

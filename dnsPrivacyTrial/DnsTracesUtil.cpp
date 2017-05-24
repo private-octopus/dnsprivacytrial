@@ -67,5 +67,5 @@ unsigned int BasicHash(unsigned int h, int x) {
 }
 
 unsigned int BasicHash(unsigned int h, const char * s) {
-    return (s == NULL) ? h : BasicHash(h, (const unsigned char *)s, strlen(s));
+    return (s == NULL) ? h : BasicHash(h, (const unsigned char *)s, (unsigned int) strlen(s));
 }

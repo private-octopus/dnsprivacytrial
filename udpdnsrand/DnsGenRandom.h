@@ -18,8 +18,9 @@ public:
 private:
     RandGen r;
     DomainList * domainList;
+    uint16_t count_in_epoch;
+    uint16_t epoch_bit;
 
-    uint8_t RandomFlags();
-    bool RandomClassAndType(uint16_t * rrclass, uint16_t * rrtype);
+    void RandomClassAndType(uint16_t * rrclass, uint16_t * rrtype);
 };
 
