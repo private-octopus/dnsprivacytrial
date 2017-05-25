@@ -40,6 +40,8 @@ enum DnsRtype {
     DnsRtype_AAAA = 28, /* Service record */
     DnsRtype_SRV = 33, /* Service record */
     DnsRtype_OPT = 41, /* EDNS0 OPT record */
+    DnsRtype_DS = 43, /* DNSSEC DS */
+    DnsRtype_RRSIG = 46, /* DNSSEC RRSIG */
     DnsRtype_DNSKEY = 48, /* DNSSEC KEY */
     DnsRtype_TLSA = 52, /* DANE Certificate */ 
     DnsRtype_TSIG = 250, /* Transaction Signature */

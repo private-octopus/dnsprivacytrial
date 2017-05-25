@@ -24,6 +24,7 @@
 #define	REGISTRY_DNSSEC_KEY_Prime_Lengths	14
 #define	REGISTRY_DNS_Q_CLASSES	15
 #define	REGISTRY_DNS_Q_RRType	16
+#define	REGISTRY_DNSSEC_KEY_Well_Known_Primes	17
 
 /*
  * Accumulate statistics:
@@ -89,14 +90,20 @@ public:
 
 private:
     int SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start);
-    int SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start);
+    int SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, uint32_t * e_rcode);
     int SubmitName(uint8_t * packet, uint32_t length, uint32_t start);
+
+    void SubmitOPTRecord(uint32_t flags, uint8_t * content, uint32_t length, uint32_t * e_rcode);
+    void SubmitKeyRecord(uint8_t * content, uint32_t length);
+    void SubmitRRSIGRecord(uint8_t * content, uint32_t length);
+    void SubmitDSRecord(uint8_t * content, uint32_t length);
 
     void SubmitRegistryNumber(uint32_t registry_id, uint32_t number);
     void SubmitRegistryString(uint32_t registry_id, uint32_t length, uint8_t * value);
 
     void PrintRRType(FILE* F, uint32_t rrtype);
     void PrintDnsFlags(FILE* F, uint32_t flag);
+    void PrintEDnsFlags(FILE* F, uint32_t flag);
 
 };
 

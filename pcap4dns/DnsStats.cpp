@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../dnsPrivacyTrial/DnsTypes.h"
 #include "DnsStats.h"
 
 DnsStatHash::DnsStatHash()
@@ -245,7 +246,8 @@ static char const * RegistryNameById[] = {
     "DNSSEC Algorithm Numbers",
     "DNSSEC KEY Prime Lengths",
     "Q-CLASS",
-    "Q-RR Type"
+    "Q-RR Type",
+    "DNSSEC Well Known Primes"
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
@@ -273,7 +275,7 @@ int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start)
     return start;
 }
 
-int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start)
+int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, uint32_t * e_rcode)
 {
     int rrtype = 0;
     int rrclass = 0;
@@ -302,13 +304,34 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start)
         }
         else
         {
-            if (ldata > 0)
+            if (ldata > 0 || rrtype == DnsRtype::DnsRtype_OPT)
             {
                 /* only record rrtypes and rrclass if valid response */
-                SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
+                if (rrtype != DnsRtype::DnsRtype_OPT)
+                {
+                    SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
+                }
                 SubmitRegistryNumber(REGISTRY_DNS_RRType, rrtype);
 
-                /* TODO: further parsing for KEY, OPT, AFSDB, NSEC3, DHCID, RSYNC types */
+                /* Further parsing for OPT, DNSKEY, RRSIG, DS,
+                 * and maybe also AFSDB, NSEC3, DHCID, RSYNC types */
+                switch (rrtype)
+                {
+                case (int)DnsRtype::DnsRtype_OPT:
+                    SubmitOPTRecord(ttl, &packet[start + 10], ldata, e_rcode);
+                    break;
+                case (int)DnsRtype::DnsRtype_DNSKEY:
+                    SubmitKeyRecord(&packet[start + 10], ldata);
+                    break;
+                case (int)DnsRtype::DnsRtype_RRSIG:
+                    SubmitRRSIGRecord(&packet[start + 10], ldata);
+                    break;
+                case (int)DnsRtype::DnsRtype_DS:
+                    SubmitDSRecord(&packet[start + 10], ldata);
+                    break;
+                default:
+                    break;
+                }
             }
 
             start += ldata + 10;
@@ -370,6 +393,79 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
     }
 
     return start;
+}
+
+void DnsStats::SubmitOPTRecord(uint32_t flags, uint8_t * content, uint32_t length, uint32_t * e_rcode)
+{
+    uint32_t current_index = 0;
+
+    /* Process the flags and rcodes */
+    if (e_rcode != NULL)
+    {
+        *e_rcode = (flags >> 24) & 0xFF;
+    }
+
+    for (int i = 0; i < 16; i++)
+    {
+        if ((flags & (1 << i)) != 0)
+        {
+            SubmitRegistryNumber(REGISTRY_EDNS_Header_Flags, i);
+        }
+    }
+
+    SubmitRegistryNumber(REGISTRY_EDNS_Version_number, (flags >> 16) & 0xFF);
+
+    /* Find the options in the payload */
+    while (current_index + 4 <= length)
+    {
+        uint32_t o_code = (content[current_index] << 8) | content[current_index + 1];
+        uint32_t o_length = (content[current_index+2] << 8) | content[current_index + 3];
+        current_index += 4 + o_length;
+
+        SubmitRegistryNumber(REGISTRY_EDNS_OPT_CODE, o_code);
+    }
+}
+
+void DnsStats::SubmitKeyRecord(uint8_t * content, uint32_t length)
+{
+    if (length > 8)
+    {
+        uint32_t algorithm = content[3];
+        SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
+
+        if (algorithm == 2)
+        {
+            uint32_t prime_length = (content[4] << 8) | content[5];
+            if (prime_length < 16)
+            {
+                SubmitRegistryNumber(REGISTRY_DNSSEC_KEY_Prime_Lengths, prime_length);
+
+                if (prime_length == 1 || prime_length == 2)
+                {
+                    uint32_t well_known_prime = (content[6] << 8) | content[7];
+                    SubmitRegistryNumber(REGISTRY_DNSSEC_KEY_Well_Known_Primes, well_known_prime);
+                }
+            }
+        }
+    }
+}
+
+void DnsStats::SubmitRRSIGRecord(uint8_t * content, uint32_t length)
+{
+    if (length > 18)
+    {
+        uint32_t algorithm = content[2];
+        SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
+    }
+}
+
+void DnsStats::SubmitDSRecord(uint8_t * content, uint32_t length)
+{
+    if (length > 4)
+    {
+        uint32_t algorithm = content[2];
+        SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
+    }
 }
 
 void DnsStats::SubmitRegistryNumber(uint32_t registry_id, uint32_t number)
@@ -545,6 +641,19 @@ void DnsStats::PrintDnsFlags(FILE * F, uint32_t flag)
     }
 }
 
+void DnsStats::PrintEDnsFlags(FILE * F, uint32_t flag)
+{
+    if (flag == 15)
+    {
+        fprintf(F, """DO"",");
+    }
+    else
+    {
+        fprintf(F, """ %d"",", 16 - flag);
+    }
+}
+
+
 
 /*
 * Examine the packet level information
@@ -580,6 +689,7 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     uint32_t flags = 0;
     uint32_t opcode = 0;
     uint32_t rcode = 0;
+    uint32_t e_rcode = 0;
     uint32_t qdcount = 0;
     uint32_t ancount = 0;
     uint32_t nscount = 0;
@@ -602,11 +712,6 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
 
     SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
 
-    if (is_response)
-    {
-        SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
-    }
-
     for (uint32_t i = 0; i < 7; i++)
     {
         if ((flags & (1 << i)) != 0)
@@ -624,18 +729,25 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
 
     for (uint32_t i = 0; i < ancount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index);
+        parse_index = SubmitRecord(packet, length, parse_index, NULL);
     }
 
     for (uint32_t i = 0; i < nscount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index);
+        parse_index = SubmitRecord(packet, length, parse_index, NULL);
     }
 
     for (uint32_t i = 0; i < arcount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index);
+        parse_index = SubmitRecord(packet, length, parse_index, &e_rcode);
     }
+
+    if (is_response)
+    {
+        rcode |= (e_rcode << 4);
+        SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
+    }
+
 }
 
 bool DnsStats::ExportToCsv(char * fileName)
@@ -677,6 +789,10 @@ bool DnsStats::ExportToCsv(char * fileName)
                     PrintRRType(F, entry->key_number);
                 }
                 else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
+                {
+                    PrintDnsFlags(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_EDNS_Header_Flags)
                 {
                     PrintDnsFlags(F, entry->key_number);
                 }
