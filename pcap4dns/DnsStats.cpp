@@ -584,7 +584,7 @@ static char const *  rrtype_249_258[] = {
     "AXFR",
     "MAILB",
     "MAILA",
-    "*",
+    "RRCLASS * (ANY)",
     "URI",
     "CAA",
     "AVC"
@@ -613,9 +613,131 @@ void DnsStats::PrintRRType(FILE * F, uint32_t rrtype)
     {
         fprintf(F, """%s"",", rrtype_32768_32769[rrtype - 32768]);
     }
+    else if (rrtype >= 110 && rrtype <= 248)
+    {
+        fprintf(F, """Unassigned (%d)"",", rrtype);
+    }
+    else if (rrtype >= 110 && rrtype <= 248 ||
+        rrtype >= 259 && rrtype <= 32767 ||
+        rrtype >= 32770 && rrtype <= 65279)
+    {
+        fprintf(F, """Unassigned (%d)"",", rrtype);
+    }
+    else if (rrtype >= 65280 && rrtype <= 65534)
+    {
+        fprintf(F, """Private use (%d)"",", rrtype);
+    }
     else
     {
-        fprintf(F, """%d"",", rrtype);
+        fprintf(F, """Reserved (%d)"",", rrtype);
+    }
+
+}
+
+static char const *  rrclass_0_4[] = {
+    "Reserved (0)",
+    "Internet (IN)",
+    "Unassigned (2)",
+    "Chaos (CH)",
+    "Hesiod (HS)"
+};
+
+static char const *  rrclass_254_255[] = {
+    "QCLASS NONE",
+    "QCLASS * (ANY)"
+};
+
+void DnsStats::PrintRRClass(FILE * F, uint32_t rrclass)
+{
+    if (rrclass <= 4)
+    {
+        fprintf(F, """%s"",", rrclass_0_4[rrclass]);
+    }
+    else if (rrclass >= 254 && rrclass <= 255)
+    {
+        fprintf(F, """%s"",", rrclass_254_255[rrclass - 254]);
+    }
+    else if (rrclass >= 5 && rrclass <= 253 ||
+        rrclass >= 256 && rrclass <= 65279)
+    {
+        fprintf(F, """Unassigned (%d)"",", rrclass);
+    }
+    else if (rrclass >= 65280 && rrclass <= 65534)
+    {
+        fprintf(F, """Private use (%d)"",", rrclass);
+    }
+    else
+    {
+        fprintf(F, """Reserved (%d)"",", rrclass);
+    }
+}
+
+static char const *  opcode_0_5[] = {
+    "Query",
+    "IQuery",
+    "Status",
+    "Unassigned (3)",
+    "Notify",
+    "Update"
+};
+
+void DnsStats::PrintOpCode(FILE * F, uint32_t opcode)
+{
+    if (opcode <= 5)
+    {
+        fprintf(F, """%s"",", opcode_0_5[opcode]);
+    }
+    else
+    {
+        fprintf(F, """Unassigned(%d)"",", opcode);
+    }
+}
+
+static char const *  rcode_0_25[] = {
+    "NoError",
+    "FormErr",
+    "ServFail",
+    "NXDomain",
+    "NotImp",
+    "Refused",
+    "YXDomain",
+    "YXRRSet",
+    "NXRRSet",
+    "NotAuth",
+    "NotZone",
+    "Unassigned (11)",
+    "Unassigned (12)",
+    "Unassigned (13)",
+    "Unassigned (14)",
+    "Unassigned (15)",
+    "BADVERS",
+    "BADSIG",
+    "BADKEY",
+    "BADTIME",
+    "BADMODE",
+    "BADNAME",
+    "BADALG",
+    "BADTRUNC",
+    "BADCOOKIE"
+};
+
+void DnsStats::PrintRCode(FILE * F, uint32_t rcode)
+{
+    if (rcode <= 25)
+    {
+        fprintf(F, """%s"",", rcode_0_25[rcode]);
+    }
+    else if (rcode >= 3841 && rcode <= 4095)
+    {
+        fprintf(F, """Private use (%d)"",", rcode);
+    }
+    else if (rcode == 65535)
+    {
+        fprintf(F, """Reserved (%d)"",", rcode);
+    }
+    else
+    {
+        fprintf(F, """Unassigned(%d)"",", rcode);
     }
 }
 
@@ -650,6 +772,96 @@ void DnsStats::PrintEDnsFlags(FILE * F, uint32_t flag)
     else
     {
         fprintf(F, """ %d"",", 16 - flag);
+    }
+}
+
+static char const * dnssec_algo_id_0_16[] = {
+    "DELETE",
+    "RSAMD5",
+    "DH",
+    "DSA",
+    "Reserved (4)",
+    "RSASHA1",
+    "DSA-NSEC3-SHA1",
+    "RSASHA1-NSEC3-SHA1",
+    "RSASHA256",
+    "Reserved (9)",
+    "RSASHA512",
+    "Reserved (11)",
+    "ECC-GOST",
+    "ECDSAP256SHA256",
+    "ECDSAP384SHA384",
+    "ED25519",
+    "ED448"
+};
+
+static char const * dnssec_algo_id_252_254[] = {
+    "INDIRECT",
+    "PRIVATEDNS",
+    "PRIVATEOID"
+};
+
+void DnsStats::PrintKeyAlgorithm(FILE * F, uint32_t algo)
+{
+    if (algo <= 16)
+    {
+        fprintf(F, """%s"",", dnssec_algo_id_0_16[algo]);
+    }
+    else if (algo >= 252 && algo <= 254)
+    {
+        fprintf(F, """%s"",", dnssec_algo_id_252_254[algo - 252]);
+    }
+    else if (algo >= 17 && algo <= 122)
+    {
+        fprintf(F, """unassigned (%d)"",", algo);
+    }
+    else if (algo >= 17 && algo <= 122)
+    {
+        fprintf(F, """reserved (%d)"",", algo);
+    }
+}
+
+static char const * edns_option_0_14[] = {
+    "Reserved (0)",
+    "LLQ",
+    "UL",
+    "NSID",
+    "Reserved",
+    "DAU",
+    "DHU",
+    "N3U",
+    "edns-client-subnet",
+    "EDNS EXPIRE",
+    "COOKIE",
+    "edns-tcp-keepalive",
+    "Padding",
+    "CHAIN",
+    "edns-key-tag"
+};
+
+
+void DnsStats::PrintOptOption(FILE * F, uint32_t option)
+{
+    if (option <= 14)
+    {
+        fprintf(F, """%s"",", edns_option_0_14[option]);
+    }
+    else if (option == 26946)
+    {
+        fprintf(F, """DeviceID"",");
+    }
+    else if (option >= 15 && option <= 26945 ||
+        option >= 26947 && option <= 65000)
+    {
+        fprintf(F, """Unassigned (%d)"",", option);
+    }
+    else if (option >= 65001 && option <= 65534)
+    {
+        fprintf(F, """Experimental (%d)"",", option);
+    }
+    else
+    {
+        fprintf(F, """Reserved (%d)"",", option);
     }
 }
 
@@ -782,11 +994,33 @@ bool DnsStats::ExportToCsv(char * fileName)
                 {
                     fprintf(F, """%d"",", entry->registry_id);
                 }
+                
+                if (entry->key_type == 0)
+                {
+                    fprintf(F, """%d"",", entry->key_number);
+                }
+                else
+                {
+                    fprintf(F, """%s,""", entry->key_value);
+                }
 
                 if (entry->registry_id == REGISTRY_DNS_RRType ||
                     entry->registry_id == REGISTRY_DNS_Q_RRType)
                 {
                     PrintRRType(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_DNS_CLASSES ||
+                    entry->registry_id == REGISTRY_DNS_Q_CLASSES)
+                {
+                    PrintRRClass(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_DNS_OpCodes)
+                {
+                    PrintOpCode(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_DNS_RCODES)
+                {
+                    PrintRCode(F, entry->key_number);
                 }
                 else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
                 {
@@ -794,15 +1028,19 @@ bool DnsStats::ExportToCsv(char * fileName)
                 }
                 else if (entry->registry_id == REGISTRY_EDNS_Header_Flags)
                 {
-                    PrintDnsFlags(F, entry->key_number);
+                    PrintEDnsFlags(F, entry->key_number);
                 }
-                else if (entry->key_type == 0)
+                else if (entry->registry_id == REGISTRY_DNSSEC_Algorithm_Numbers)
                 {
-                    fprintf(F, """%d"",", entry->key_number);
+                    PrintKeyAlgorithm(F, entry->key_number);
                 }
-                else
+                else if (entry->registry_id == REGISTRY_EDNS_OPT_CODE)
                 {
-                    fprintf(F, """%s,""", entry->key_value);
+                    PrintOptOption(F, entry->key_number);
+                }
+                else 
+                {
+                    fprintf(F, """ "",");
                 }
 
                 fprintf(F, """%d""\n", entry->count);

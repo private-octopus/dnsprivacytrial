@@ -102,8 +102,13 @@ private:
     void SubmitRegistryString(uint32_t registry_id, uint32_t length, uint8_t * value);
 
     void PrintRRType(FILE* F, uint32_t rrtype);
+    void PrintRRClass(FILE* F, uint32_t rrclass);
+    void PrintOpCode(FILE* F, uint32_t opcode);
+    void PrintRCode(FILE* F, uint32_t rcode);
     void PrintDnsFlags(FILE* F, uint32_t flag);
     void PrintEDnsFlags(FILE* F, uint32_t flag);
+    void PrintKeyAlgorithm(FILE* F, uint32_t algo);
+    void PrintOptOption(FILE* F, uint32_t option);
 
 };
 
