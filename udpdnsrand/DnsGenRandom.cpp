@@ -81,7 +81,7 @@ bool DnsGenRandom::GenerateQuery(uint8_t * buffer, uint32_t buffer_max,
     bool do_flag = true;
     bool strip_www = false;
     uint16_t rrclass = 1;
-    uint16_t rrtype = (uint16_t)DnsRtype::DnsRtype_ANY;
+    uint16_t rrtype = (uint16_t)/*DnsRtype::*/DnsRtype_ANY;
     uint16_t query_id = (uint16_t)r.GetRandomUniform(0x8000);
     uint32_t current_index = 0;
 
@@ -91,19 +91,19 @@ bool DnsGenRandom::GenerateQuery(uint8_t * buffer, uint32_t buffer_max,
         {
             // Cannot ask directy for DNSKEY!
             scenario = DNSKEY;
-            rrtype = (uint16_t)DnsRtype::DnsRtype_DNSKEY;
+            rrtype = (uint16_t)/*DnsRtype::*/DnsRtype_DNSKEY;
             strip_www = true;
         }
         else if (scenario_range < TLSA_THRESHOLD)
         {
             scenario = TLSA;
-            rrtype = (uint16_t)DnsRtype::DnsRtype_TLSA;
+            rrtype = (uint16_t)/*DnsRtype::*/DnsRtype_TLSA;
             strip_www = (r.GetRandomUniform(1000) > 500);
         }
         else if (scenario_range < SRV_THRESHOLD)
         {
             scenario = SRV;
-            rrtype = (uint16_t)DnsRtype::DnsRtype_SRV;
+            rrtype = (uint16_t)/*DnsRtype::*/DnsRtype_SRV;
             strip_www = true;
         }
         else
@@ -220,7 +220,7 @@ void DnsGenRandom::RandomClassAndType(uint16_t * rrclass, uint16_t * rrtype)
     if (rrclass_random == 0)
     {
         *rrclass = 0;
-        *rrtype = (uint16_t)DnsRtype::DnsRtype_SOA;
+        *rrtype = (uint16_t)/*DnsRtype::*/DnsRtype_SOA;
     }
     else if (rrclass_random == 1)
     {
@@ -312,7 +312,7 @@ uint32_t DnsGenRandom::EncodeEDNS(bool do_flag, uint32_t packet_max, uint8_t * b
         buffer[current_index++] = 0; 
         /* EDNS Opt Type */
         buffer[current_index++] = 0;
-        buffer[current_index++] = DnsRtype::DnsRtype_OPT; 
+        buffer[current_index++] = /*DnsRtype::*/DnsRtype_OPT; 
         /* class = packet length */
         buffer[current_index++] = (uint8_t)(packet_max >> 8);
         buffer[current_index++] = (uint8_t)(packet_max & 0xFF); 

@@ -19,8 +19,8 @@ public:
 
 
 private:
-    unsigned long long state[2];
+    uint64_t state[2];
 
-    unsigned long long xorshift128plus(void);
+    uint64_t xorshift128plus(void);
 };
 

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "DomainList.h"
@@ -14,9 +15,14 @@ DomainList::~DomainList()
 bool DomainList::Init(char * namelist)
 {
     FILE * F;
+#ifdef WINDOWS
     errno_t er = fopen_s(&F, namelist, "r");
     bool ret = er == 0;
-
+#else
+    bool ret;
+    F = fopen(namelist,"r");
+    ret = (F != NULL);
+#endif
     if (ret)
     {
         char name_line[1024];
@@ -98,7 +104,11 @@ DomainNameObject * DomainNameObject::CreateCopy()
     DomainNameObject * x = new DomainNameObject();
     if (x != NULL)
     {
+#ifdef WINDOWS
         (void) strcpy_s(x->DomainName, DomainName);
+#else
+        strcpy(x->DomainName, DomainName);
+#endif
     }
     return x;
 }

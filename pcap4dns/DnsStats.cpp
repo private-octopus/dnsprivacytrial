@@ -304,10 +304,10 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, ui
         }
         else
         {
-            if (ldata > 0 || rrtype == DnsRtype::DnsRtype_OPT)
+            if (ldata > 0 || rrtype == /*DnsRtype::*/DnsRtype_OPT)
             {
                 /* only record rrtypes and rrclass if valid response */
-                if (rrtype != DnsRtype::DnsRtype_OPT)
+                if (rrtype != /*DnsRtype::*/DnsRtype_OPT)
                 {
                     SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
                 }
@@ -317,16 +317,16 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, ui
                  * and maybe also AFSDB, NSEC3, DHCID, RSYNC types */
                 switch (rrtype)
                 {
-                case (int)DnsRtype::DnsRtype_OPT:
+                case (int)/*DnsRtype::*/DnsRtype_OPT:
                     SubmitOPTRecord(ttl, &packet[start + 10], ldata, e_rcode);
                     break;
-                case (int)DnsRtype::DnsRtype_DNSKEY:
+                case (int)/*DnsRtype::*/DnsRtype_DNSKEY:
                     SubmitKeyRecord(&packet[start + 10], ldata);
                     break;
-                case (int)DnsRtype::DnsRtype_RRSIG:
+                case (int)/*DnsRtype::*/DnsRtype_RRSIG:
                     SubmitRRSIGRecord(&packet[start + 10], ldata);
                     break;
-                case (int)DnsRtype::DnsRtype_DS:
+                case (int)/*DnsRtype::*/DnsRtype_DS:
                     SubmitDSRecord(&packet[start + 10], ldata);
                     break;
                 default:
