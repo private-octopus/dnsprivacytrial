@@ -21,7 +21,7 @@
 #ifndef DNSTYPE_H
 #define DNSTYPE_H
 
-typedef enum {
+enum DnsRtype {
     DnsRtype_A = 1, /* a host address */
     DnsRtype_NS = 2, /* an authoritative name server */
     DnsRtype_MD = 3, /* a mail destination (Obsolete - use MX) */
@@ -48,7 +48,7 @@ typedef enum {
     DnsRtype_TSIG = 250, /* Transaction Signature */
     DnsRtype_ANY = 255, /*Not a DNS type, but a DNS query type, meaning "all types"*/
     DnsRtype_UNEXPECTED = 0 /*Not a DNS type, indicates a parsing error */
-} DnsRType;
+};
 
 #endif /* DNSTYPE_H */
-;
+
