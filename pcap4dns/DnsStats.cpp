@@ -353,12 +353,14 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
         if (l == 0)
         {
             /* end of parsing*/
+            SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0);
             start++;
             break;
         }
         else if ((l & 0xC0) == 0xC0)
         {
             /* Name compression */
+            SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0xC0);
             if ((start + 2) > length)
             {
                 start = length;
@@ -380,6 +382,7 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
         else
         {
             /* regular name part. To do: tracking of underscore labels. */
+            SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0);
             if (start + l + 1 > length)
             {
                 start = length;
