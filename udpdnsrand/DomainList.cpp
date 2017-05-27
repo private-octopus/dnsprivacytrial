@@ -98,7 +98,11 @@ DomainNameObject * DomainNameObject::CreateCopy()
     DomainNameObject * x = new DomainNameObject();
     if (x != NULL)
     {
+#ifdef WINDOWS
         (void) strcpy_s(x->DomainName, DomainName);
+#else
+        strcpy(x->DomainName, DomainName);
+#endif
     }
     return x;
 }
