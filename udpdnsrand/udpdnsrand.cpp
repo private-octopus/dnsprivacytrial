@@ -34,6 +34,7 @@
 #ifndef SOCKET_TYPE 
 #define SOCKET_TYPE SOCKET
 #endif
+
 #ifndef SOCKET_CLOSE
 #define SOCKET_CLOSE(x) closesocket(x)
 #endif
@@ -44,6 +45,19 @@
 #define WSA_START(x, y) WSAStartup((x), (y))
 #endif
 #else
+/*
+ * Alternate definition for the Unix port.
+ */
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+
 #ifndef SOCKET_TYPE 
 #define SOCKET_TYPE int
 #endif
@@ -58,6 +72,9 @@
 #endif
 #ifndef WSA_START
 #define WSA_START(x, y) (*y = 0, true)
+#endif
+#ifndef InetPtonA
+#define InetPtonA inet_pton
 #endif
 #endif
 
@@ -74,14 +91,14 @@ int main(int argc, char ** argv)
     char * ip_address_text = (char *) "192.168.1.254";
     struct sockaddr_storage server_address;
     struct sockaddr_storage addr_from;
-    int from_length = 0;
+    socklen_t from_length = 0;
     struct sockaddr_in * ipv4_dest = (struct sockaddr_in *)&server_address;
     struct sockaddr_in6 * ipv6_dest = (struct sockaddr_in6 *)&server_address;
     int nb_packets = 16;
     int nb_packets_sent = 0;
     int nb_time_out = 0;
     SOCKET_TYPE fd = INVALID_SOCKET;
-    WSADATA wsaData;
+    WSA_START_DATA wsaData;
     int nb_packets_in_transit = 0;
     fd_set   readfds;
     fd_set   writefds;
