@@ -247,7 +247,11 @@ static char const * RegistryNameById[] = {
     "DNSSEC KEY Prime Lengths",
     "Q-CLASS",
     "Q-RR Type",
-    "DNSSEC Well Known Primes"
+    "DNSSEC Well Known Primes",
+    "EDNS Packet Size",
+    "Query Size",
+    "Response Size",
+    "TC Length"
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
@@ -275,7 +279,8 @@ int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start)
     return start;
 }
 
-int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, uint32_t * e_rcode)
+int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, 
+    uint32_t * e_rcode, uint32_t * e_length)
 {
     int rrtype = 0;
     int rrclass = 0;
@@ -304,12 +309,20 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, ui
         }
         else
         {
-            if (ldata > 0 || rrtype == /*DnsRtype::*/DnsRtype_OPT)
+            if (ldata > 0 || rrtype == DnsRtype_OPT)
             {
                 /* only record rrtypes and rrclass if valid response */
-                if (rrtype != /*DnsRtype::*/DnsRtype_OPT)
+                if (rrtype != DnsRtype_OPT)
                 {
                     SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
+                }
+                else
+                {
+                    /* document the extended length */
+                    if (e_length != NULL)
+                    {
+                        *e_length = rrclass;
+                    }
                 }
                 SubmitRegistryNumber(REGISTRY_DNS_RRType, rrtype);
 
@@ -317,16 +330,17 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, ui
                  * and maybe also AFSDB, NSEC3, DHCID, RSYNC types */
                 switch (rrtype)
                 {
-                case (int)/*DnsRtype::*/DnsRtype_OPT:
+                case (int)DnsRtype_OPT:
                     SubmitOPTRecord(ttl, &packet[start + 10], ldata, e_rcode);
+
                     break;
-                case (int)/*DnsRtype::*/DnsRtype_DNSKEY:
+                case (int)DnsRtype_DNSKEY:
                     SubmitKeyRecord(&packet[start + 10], ldata);
                     break;
-                case (int)/*DnsRtype::*/DnsRtype_RRSIG:
+                case (int)DnsRtype_RRSIG:
                     SubmitRRSIGRecord(&packet[start + 10], ldata);
                     break;
-                case (int)/*DnsRtype::*/DnsRtype_DS:
+                case (int)DnsRtype_DS:
                     SubmitDSRecord(&packet[start + 10], ldata);
                     break;
                 default:
@@ -910,6 +924,8 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     uint32_t nscount = 0;
     uint32_t arcount = 0;
     uint32_t parse_index = 0;
+    uint32_t e_length = 512;
+    uint32_t tc_bit = 0;
 
     if (length < 12)
     {
@@ -927,13 +943,6 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
 
     SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
 
-    for (uint32_t i = 0; i < 7; i++)
-    {
-        if ((flags & (1 << i)) != 0)
-        {
-            SubmitRegistryNumber(REGISTRY_DNS_Header_Flags, i);
-        }
-    }
 
     parse_index = 12;
 
@@ -944,25 +953,34 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
 
     for (uint32_t i = 0; i < ancount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, NULL);
+        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL);
     }
 
     for (uint32_t i = 0; i < nscount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, NULL);
+        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL);
     }
 
     for (uint32_t i = 0; i < arcount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, &e_rcode);
+        parse_index = SubmitRecord(packet, length, parse_index, &e_rcode, &e_length);
     }
 
     if (is_response)
     {
+        SubmitRegistryNumber(REGISTRY_DNS_Response_Size, length);
         rcode |= (e_rcode << 4);
         SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
+        if ((flags & (1 << 5)) != 0)
+        {
+            SubmitRegistryNumber(REGISTRY_DNS_TC_length, e_length);
+        }
     }
-
+    else
+    {
+        SubmitRegistryNumber(REGISTRY_DNS_Query_Size, length);
+        SubmitRegistryNumber(REGISTRY_EDNS_Packet_Size, e_length);
+    }
 }
 
 bool DnsStats::ExportToCsv(char * fileName)
