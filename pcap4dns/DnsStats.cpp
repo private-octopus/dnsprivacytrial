@@ -221,6 +221,10 @@ bool DnsStatHash::IsSameKey(dns_registry_entry_t * key1, dns_registry_entry_t * 
 
 
 DnsStats::DnsStats()
+    :
+    record_count(0),
+    query_count(0),
+    response_count(0)
 {
 }
 
@@ -251,28 +255,35 @@ static char const * RegistryNameById[] = {
     "EDNS Packet Size",
     "Query Size",
     "Response Size",
-    "TC Length"
+    "TC Length",
+    "Z-Q-TLD",
+    "Z-R-TLD",
+    "Z-Error Flags"
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
 
-int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start)
+int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start, bool is_response)
 {
     int rrclass = 0;
     int rrtype = 0;
 
-    start = SubmitName(packet, length, start);
+    start = SubmitName(packet, length, start,
+        (!is_response && query_count < 10000)?REGISTRY_TLD_query:0);
 
     if (start + 4 <= length)
     {
         rrtype = (packet[start] << 8) | packet[start + 1];
         rrclass = (packet[start + 2] << 8) | packet[start + 3];
         start += 4;
+        CheckRRClass(rrclass);
+        CheckRRType(rrtype);
         SubmitRegistryNumber(REGISTRY_DNS_Q_CLASSES, rrclass);
         SubmitRegistryNumber(REGISTRY_DNS_Q_RRType, rrtype);
     }
     else
     {
+        error_flags |= DNS_REGISTRY_ERROR_FORMAT;
         start = length;
     }
 
@@ -280,19 +291,23 @@ int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start)
 }
 
 int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, 
-    uint32_t * e_rcode, uint32_t * e_length)
+    uint32_t * e_rcode, uint32_t * e_length, bool is_response)
 {
     int rrtype = 0;
     int rrclass = 0;
     unsigned int ttl = 0;
     int ldata = 0;
+    int name_start = start;
+
+    record_count++;
 
     /* TODO: if TXT record, analyze labels for underscores */
 
-    start = SubmitName(packet, length, start);
+    start = SubmitName(packet, length, start, 0);
 
     if ((start + 10) > length)
     {
+        error_flags |= DNS_REGISTRY_ERROR_FORMAT;
         start = length;
     }
     else
@@ -305,6 +320,7 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
 
         if (start + ldata + 10 > length)
         {
+            error_flags |= DNS_REGISTRY_ERROR_FORMAT;
             start = length;
         }
         else
@@ -314,7 +330,18 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
                 /* only record rrtypes and rrclass if valid response */
                 if (rrtype != DnsRtype_OPT)
                 {
-                    SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
+                    CheckRRClass(rrclass);
+                    CheckRRType(rrtype);
+
+                    if (is_response)
+                    {
+                        SubmitRegistryNumber(REGISTRY_DNS_CLASSES, rrclass);
+                        (void)SubmitName(packet, length, name_start, REGISTRY_TLD_response);
+                    }
+                    else
+                    {
+                        SubmitRegistryNumber(REGISTRY_DNS_Q_CLASSES, rrclass);
+                    }
                 }
                 else
                 {
@@ -324,7 +351,15 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
                         *e_length = rrclass;
                     }
                 }
-                SubmitRegistryNumber(REGISTRY_DNS_RRType, rrtype);
+
+                if (is_response)
+                {
+                    SubmitRegistryNumber(REGISTRY_DNS_RRType, rrtype);
+                }
+                else
+                {
+                    SubmitRegistryNumber(REGISTRY_DNS_Q_RRType, rrtype);
+                }
 
                 /* Further parsing for OPT, DNSKEY, RRSIG, DS,
                  * and maybe also AFSDB, NSEC3, DHCID, RSYNC types */
@@ -355,10 +390,13 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
     return start;
 }
 
-int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
+int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint32_t registryId)
 {
     uint32_t l = 0;
     uint32_t offset = 0;
+    uint32_t previous = 0;
+    uint32_t name_start = start;
+    uint8_t lower_case_tld[64];
 
     while (start < length)
     {
@@ -368,6 +406,35 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
         {
             /* end of parsing*/
             SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0);
+
+            if (previous != 0)
+            {
+                uint32_t l_tld = packet[previous];
+
+                if (l_tld > 0 && l_tld <= 63)
+                {
+                    for (uint32_t i = 0; i < l_tld; i++)
+                    {
+                        uint8_t c = packet[previous + 1 + i];
+                        if (c >= 'A' && c <= 'Z')
+                        {
+                            c += 'a' - 'A';
+                        }
+                        else if (c <= ' ' || c >= 127 || c == '"' || c == ',')
+                        {
+                            c = '?';
+                        }
+                        lower_case_tld[i] = c;
+                    }
+
+                    CheckTld(l_tld, lower_case_tld);
+
+                    if (registryId != 0)
+                    {
+                        SubmitRegistryString(registryId, l_tld, lower_case_tld);
+                    }
+                }
+            }
             start++;
             break;
         }
@@ -375,13 +442,25 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
         {
             /* Name compression */
             SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0xC0);
+
             if ((start + 2) > length)
             {
+                error_flags |= DNS_REGISTRY_ERROR_FORMAT;
                 start = length;
                 break;
             }
             else
             {
+                if (registryId != 0)
+                {
+                    uint32_t new_start = ((l & 63)<<8) + packet[start+1];
+
+                    if (new_start < name_start)
+                    {
+                        (void) SubmitName(packet, length, new_start, registryId);
+                    }
+                }
+
                 start += 2;
                 break;
             }
@@ -389,6 +468,7 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
         else if (l > 0x3F)
         {
             /* found an extension. Don't know how to parse it! */
+            error_flags |= DNS_REGISTRY_ERROR_LABEL;
             SubmitRegistryNumber(REGISTRY_DNS_LabelType, l);
             start = length;
             break;
@@ -399,11 +479,13 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start)
             SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0);
             if (start + l + 1 > length)
             {
+                error_flags |= DNS_REGISTRY_ERROR_FORMAT;
                 start = length;
                 break;
             }
             else
             {
+                previous = start;
                 start += l + 1;
             }
         }
@@ -438,7 +520,7 @@ void DnsStats::SubmitOPTRecord(uint32_t flags, uint8_t * content, uint32_t lengt
         uint32_t o_code = (content[current_index] << 8) | content[current_index + 1];
         uint32_t o_length = (content[current_index+2] << 8) | content[current_index + 3];
         current_index += 4 + o_length;
-
+        CheckOptOption(o_code);
         SubmitRegistryNumber(REGISTRY_EDNS_OPT_CODE, o_code);
     }
 }
@@ -448,6 +530,7 @@ void DnsStats::SubmitKeyRecord(uint8_t * content, uint32_t length)
     if (length > 8)
     {
         uint32_t algorithm = content[3];
+        CheckKeyAlgorithm(algorithm);
         SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
 
         if (algorithm == 2)
@@ -472,6 +555,7 @@ void DnsStats::SubmitRRSIGRecord(uint8_t * content, uint32_t length)
     if (length > 18)
     {
         uint32_t algorithm = content[2];
+        CheckKeyAlgorithm(algorithm);
         SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
     }
 }
@@ -481,6 +565,7 @@ void DnsStats::SubmitDSRecord(uint8_t * content, uint32_t length)
     if (length > 4)
     {
         uint32_t algorithm = content[2];
+        CheckKeyAlgorithm(algorithm);
         SubmitRegistryNumber(REGISTRY_DNSSEC_Algorithm_Numbers, algorithm);
     }
 }
@@ -882,6 +967,1646 @@ void DnsStats::PrintOptOption(FILE * F, uint32_t option)
     }
 }
 
+static char const * error_flag_code = "TCORKPDLF";
+
+void DnsStats::PrintErrorFlags(FILE * F, uint32_t flags)
+{
+    if (flags == 0)
+    {
+        fprintf(F, """No error"",");
+    }
+    else
+    {
+        char flags_name[10];
+        int n = 0;
+
+        for (int i = 0; i < 9; i++)
+        {
+            if ((flags&(1 << i)) != 0)
+            {
+                flags_name[n] = error_flag_code[i];
+                n++;
+            }
+        }
+        flags_name[n] = 0;
+        fprintf(F, """%s"",", flags_name);
+    }
+}
+
+void DnsStats::CheckRRType(uint32_t rrtype)
+{
+    if (!((rrtype >= 1 && rrtype <= 62) || (rrtype >= 99 && rrtype <= 109) ||
+        (rrtype >= 249 && rrtype <= 258) || (rrtype >= 32768 && rrtype <= 32769)))
+    {
+        error_flags |= DNS_REGISTRY_ERROR_RRTYPE;
+    }
+}
+
+void DnsStats::CheckRRClass(uint32_t rrclass)
+{
+    if (rrclass > 4 && (rrclass < 254 || rrclass > 255))
+    {
+        error_flags |= DNS_REGISTRY_ERROR_RRCLASS;
+    }
+}
+
+void DnsStats::CheckOpCode(uint32_t opcode)
+{
+    if (opcode > 5 || opcode == 3)
+    {
+        error_flags |= DNS_REGISTRY_ERROR_OPCODE;
+    }
+}
+
+void DnsStats::CheckRCode(uint32_t rcode)
+{
+    if (rcode > 25 || (rcode  >= 11 && rcode <= 15))
+    {
+        error_flags |= DNS_REGISTRY_ERROR_RCODE;
+    }
+}
+
+void DnsStats::CheckKeyAlgorithm(uint32_t algo)
+{
+    if (!(algo <= 16 || (algo >= 252 && algo <= 254)))
+    {
+        error_flags |= DNS_REGISTRY_ERROR_KALGO;
+    }
+}
+
+void DnsStats::CheckOptOption(uint32_t option)
+{
+    if (!(option <= 14 || option == 26946))
+    {
+        error_flags |= DNS_REGISTRY_ERROR_OPTO;
+    }
+}
+
+static char const *  valid_tld[] = { 
+    "aaa",
+    "aarp",
+    "abarth",
+    "abb",
+    "abbott",
+    "abbvie",
+    "abc",
+    "able",
+    "abogado",
+    "abudhabi",
+    "ac",
+    "academy",
+    "accenture",
+    "accountant",
+    "accountants",
+    "aco",
+    "active",
+    "actor",
+    "ad",
+    "adac",
+    "ads",
+    "adult",
+    "ae",
+    "aeg",
+    "aero",
+    "aetna",
+    "af",
+    "afamilycompany",
+    "afl",
+    "africa",
+    "ag",
+    "agakhan",
+    "agency",
+    "ai",
+    "aig",
+    "aigo",
+    "airbus",
+    "airforce",
+    "airtel",
+    "akdn",
+    "al",
+    "alfaromeo",
+    "alibaba",
+    "alipay",
+    "allfinanz",
+    "allstate",
+    "ally",
+    "alsace",
+    "alstom",
+    "am",
+    "americanfamily",
+    "amex",
+    "amfam",
+    "amica",
+    "amsterdam",
+    "analytics",
+    "android",
+    "anquan",
+    "anz",
+    "ao",
+    "aol",
+    "apartments",
+    "app",
+    "apple",
+    "aq",
+    "aquarelle",
+    "ar",
+    "aramco",
+    "archi",
+    "army",
+    "arpa",
+    "art",
+    "arte",
+    "as",
+    "asda",
+    "asia",
+    "associates",
+    "at",
+    "athleta",
+    "attorney",
+    "au",
+    "auction",
+    "audi",
+    "audible",
+    "audio",
+    "auspost",
+    "author",
+    "auto",
+    "autos",
+    "avianca",
+    "aw",
+    "aws",
+    "ax",
+    "axa",
+    "az",
+    "azure",
+    "ba",
+    "baby",
+    "baidu",
+    "bananarepublic",
+    "band",
+    "bank",
+    "bar",
+    "barcelona",
+    "barclaycard",
+    "barclays",
+    "barefoot",
+    "bargains",
+    "baseball",
+    "basketball",
+    "bauhaus",
+    "bayern",
+    "bb",
+    "bbc",
+    "bbt",
+    "bbva",
+    "bcg",
+    "bcn",
+    "bd",
+    "be",
+    "beats",
+    "beauty",
+    "beer",
+    "bentley",
+    "berlin",
+    "best",
+    "bestbuy",
+    "bet",
+    "bf",
+    "bg",
+    "bh",
+    "bharti",
+    "bi",
+    "bible",
+    "bid",
+    "bike",
+    "bind",
+    "bing",
+    "bingo",
+    "bio",
+    "biz",
+    "bj",
+    "black",
+    "blackfriday",
+    "blanco",
+    "blockbuster",
+    "blog",
+    "bloomberg",
+    "blue",
+    "bm",
+    "bms",
+    "bmw",
+    "bn",
+    "bnl",
+    "bnpparibas",
+    "bo",
+    "boats",
+    "boehringer",
+    "bofa",
+    "bom",
+    "bond",
+    "boo",
+    "book",
+    "booking",
+    "boots",
+    "bosch",
+    "bostik",
+    "boston",
+    "bot",
+    "boutique",
+    "box",
+    "br",
+    "bradesco",
+    "bridgestone",
+    "broadway",
+    "broker",
+    "brother",
+    "brussels",
+    "bs",
+    "bt",
+    "budapest",
+    "bugatti",
+    "build",
+    "builders",
+    "business",
+    "buy",
+    "buzz",
+    "bv",
+    "bw",
+    "by",
+    "bz",
+    "bzh",
+    "ca",
+    "cab",
+    "cafe",
+    "cal",
+    "call",
+    "calvinklein",
+    "cam",
+    "camera",
+    "camp",
+    "cancerresearch",
+    "canon",
+    "capetown",
+    "capital",
+    "capitalone",
+    "car",
+    "caravan",
+    "cards",
+    "care",
+    "career",
+    "careers",
+    "cars",
+    "cartier",
+    "casa",
+    "case",
+    "caseih",
+    "cash",
+    "casino",
+    "cat",
+    "catering",
+    "catholic",
+    "cba",
+    "cbn",
+    "cbre",
+    "cbs",
+    "cc",
+    "cd",
+    "ceb",
+    "center",
+    "ceo",
+    "cern",
+    "cf",
+    "cfa",
+    "cfd",
+    "cg",
+    "ch",
+    "chanel",
+    "channel",
+    "chase",
+    "chat",
+    "cheap",
+    "chintai",
+    "chloe",
+    "christmas",
+    "chrome",
+    "chrysler",
+    "church",
+    "ci",
+    "cipriani",
+    "circle",
+    "cisco",
+    "citadel",
+    "citi",
+    "citic",
+    "city",
+    "cityeats",
+    "ck",
+    "cl",
+    "claims",
+    "cleaning",
+    "click",
+    "clinic",
+    "clinique",
+    "clothing",
+    "cloud",
+    "club",
+    "clubmed",
+    "cm",
+    "cn",
+    "co",
+    "coach",
+    "codes",
+    "coffee",
+    "college",
+    "cologne",
+    "com",
+    "comcast",
+    "commbank",
+    "community",
+    "company",
+    "compare",
+    "computer",
+    "comsec",
+    "condos",
+    "construction",
+    "consulting",
+    "contact",
+    "contractors",
+    "cooking",
+    "cookingchannel",
+    "cool",
+    "coop",
+    "corsica",
+    "country",
+    "coupon",
+    "coupons",
+    "courses",
+    "cr",
+    "credit",
+    "creditunion",
+    "cricket",
+    "crown",
+    "crs",
+    "cruise",
+    "cruises",
+    "csc",
+    "cu",
+    "cuisinella",
+    "cv",
+    "cw",
+    "cx",
+    "cy",
+    "cymru",
+    "cyou",
+    "cz",
+    "dabur",
+    "dad",
+    "dance",
+    "data",
+    "date",
+    "dating",
+    "datsun",
+    "day",
+    "dclk",
+    "dds",
+    "de",
+    "deal",
+    "dealer",
+    "deals",
+    "degree",
+    "delivery",
+    "dell",
+    "deloitte",
+    "delta",
+    "democrat",
+    "dental",
+    "dentist",
+    "desi",
+    "design",
+    "dev",
+    "dhl",
+    "diamonds",
+    "diet",
+    "digital",
+    "direct",
+    "directory",
+    "discount",
+    "discover",
+    "dish",
+    "diy",
+    "dj",
+    "dk",
+    "dm",
+    "dnp",
+    "do",
+    "docs",
+    "doctor",
+    "dodge",
+    "dog",
+    "doha",
+    "domains",
+    "dot",
+    "download",
+    "drive",
+    "dtv",
+    "dubai",
+    "duck",
+    "dunlop",
+    "duns",
+    "dupont",
+    "durban",
+    "dvag",
+    "dvr",
+    "dz",
+    "earth",
+    "eat",
+    "ec",
+    "eco",
+    "edeka",
+    "edu",
+    "education",
+    "ee",
+    "eg",
+    "email",
+    "emerck",
+    "energy",
+    "engineer",
+    "engineering",
+    "enterprises",
+    "epost",
+    "epson",
+    "equipment",
+    "er",
+    "ericsson",
+    "erni",
+    "es",
+    "esq",
+    "estate",
+    "esurance",
+    "et",
+    "eu",
+    "eurovision",
+    "eus",
+    "events",
+    "everbank",
+    "exchange",
+    "expert",
+    "exposed",
+    "express",
+    "extraspace",
+    "fage",
+    "fail",
+    "fairwinds",
+    "faith",
+    "family",
+    "fan",
+    "fans",
+    "farm",
+    "farmers",
+    "fashion",
+    "fast",
+    "fedex",
+    "feedback",
+    "ferrari",
+    "ferrero",
+    "fi",
+    "fiat",
+    "fidelity",
+    "fido",
+    "film",
+    "final",
+    "finance",
+    "financial",
+    "fire",
+    "firestone",
+    "firmdale",
+    "fish",
+    "fishing",
+    "fit",
+    "fitness",
+    "fj",
+    "fk",
+    "flickr",
+    "flights",
+    "flir",
+    "florist",
+    "flowers",
+    "fly",
+    "fm",
+    "fo",
+    "foo",
+    "food",
+    "foodnetwork",
+    "football",
+    "ford",
+    "forex",
+    "forsale",
+    "forum",
+    "foundation",
+    "fox",
+    "fr",
+    "free",
+    "fresenius",
+    "frl",
+    "frogans",
+    "frontdoor",
+    "frontier",
+    "ftr",
+    "fujitsu",
+    "fujixerox",
+    "fun",
+    "fund",
+    "furniture",
+    "futbol",
+    "fyi",
+    "ga",
+    "gal",
+    "gallery",
+    "gallo",
+    "gallup",
+    "game",
+    "games",
+    "gap",
+    "garden",
+    "gb",
+    "gbiz",
+    "gd",
+    "gdn",
+    "ge",
+    "gea",
+    "gent",
+    "genting",
+    "george",
+    "gf",
+    "gg",
+    "ggee",
+    "gh",
+    "gi",
+    "gift",
+    "gifts",
+    "gives",
+    "giving",
+    "gl",
+    "glade",
+    "glass",
+    "gle",
+    "global",
+    "globo",
+    "gm",
+    "gmail",
+    "gmbh",
+    "gmo",
+    "gmx",
+    "gn",
+    "godaddy",
+    "gold",
+    "goldpoint",
+    "golf",
+    "goo",
+    "goodhands",
+    "goodyear",
+    "goog",
+    "google",
+    "gop",
+    "got",
+    "gov",
+    "gp",
+    "gq",
+    "gr",
+    "grainger",
+    "graphics",
+    "gratis",
+    "green",
+    "gripe",
+    "group",
+    "gs",
+    "gt",
+    "gu",
+    "guardian",
+    "gucci",
+    "guge",
+    "guide",
+    "guitars",
+    "guru",
+    "gw",
+    "gy",
+    "hair",
+    "hamburg",
+    "hangout",
+    "haus",
+    "hbo",
+    "hdfc",
+    "hdfcbank",
+    "health",
+    "healthcare",
+    "help",
+    "helsinki",
+    "here",
+    "hermes",
+    "hgtv",
+    "hiphop",
+    "hisamitsu",
+    "hitachi",
+    "hiv",
+    "hk",
+    "hkt",
+    "hm",
+    "hn",
+    "hockey",
+    "holdings",
+    "holiday",
+    "homedepot",
+    "homegoods",
+    "homes",
+    "homesense",
+    "honda",
+    "honeywell",
+    "horse",
+    "hospital",
+    "host",
+    "hosting",
+    "hot",
+    "hoteles",
+    "hotels",
+    "hotmail",
+    "house",
+    "how",
+    "hr",
+    "hsbc",
+    "ht",
+    "htc",
+    "hu",
+    "hughes",
+    "hyatt",
+    "hyundai",
+    "ibm",
+    "icbc",
+    "ice",
+    "icu",
+    "id",
+    "ie",
+    "ieee",
+    "ifm",
+    "ikano",
+    "il",
+    "im",
+    "imamat",
+    "imdb",
+    "immo",
+    "immobilien",
+    "in",
+    "industries",
+    "infiniti",
+    "info",
+    "ing",
+    "ink",
+    "institute",
+    "insurance",
+    "insure",
+    "int",
+    "intel",
+    "international",
+    "intuit",
+    "investments",
+    "io",
+    "ipiranga",
+    "iq",
+    "ir",
+    "irish",
+    "is",
+    "iselect",
+    "ismaili",
+    "ist",
+    "istanbul",
+    "it",
+    "itau",
+    "itv",
+    "iveco",
+    "iwc",
+    "jaguar",
+    "java",
+    "jcb",
+    "jcp",
+    "je",
+    "jeep",
+    "jetzt",
+    "jewelry",
+    "jio",
+    "jlc",
+    "jll",
+    "jm",
+    "jmp",
+    "jnj",
+    "jo",
+    "jobs",
+    "joburg",
+    "jot",
+    "joy",
+    "jp",
+    "jpmorgan",
+    "jprs",
+    "juegos",
+    "juniper",
+    "kaufen",
+    "kddi",
+    "ke",
+    "kerryproperties",
+    "kfh",
+    "kg",
+    "kh",
+    "ki",
+    "kia",
+    "kim",
+    "kinder",
+    "kindle",
+    "kitchen",
+    "kiwi",
+    "km",
+    "kn",
+    "koeln",
+    "komatsu",
+    "kosher",
+    "kp",
+    "kpmg",
+    "kpn",
+    "kr",
+    "krd",
+    "kred",
+    "kuokgroup",
+    "kw",
+    "ky",
+    "kyoto",
+    "kz",
+    "la",
+    "lacaixa",
+    "ladbrokes",
+    "lamborghini",
+    "lamer",
+    "lancaster",
+    "lancia",
+    "land",
+    "landrover",
+    "lanxess",
+    "lasalle",
+    "lat",
+    "latino",
+    "latrobe",
+    "law",
+    "lawyer",
+    "lb",
+    "lc",
+    "lds",
+    "lease",
+    "leclerc",
+    "lefrak",
+    "legal",
+    "lego",
+    "lexus",
+    "lgbt",
+    "li",
+    "liaison",
+    "lidl",
+    "life",
+    "lifeinsurance",
+    "lifestyle",
+    "lighting",
+    "like",
+    "lilly",
+    "limited",
+    "limo",
+    "lincoln",
+    "linde",
+    "link",
+    "lipsy",
+    "live",
+    "living",
+    "lixil",
+    "lk",
+    "loan",
+    "loans",
+    "locker",
+    "locus",
+    "loft",
+    "lol",
+    "london",
+    "lotte",
+    "lotto",
+    "love",
+    "lpl",
+    "lplfinancial",
+    "lr",
+    "ls",
+    "lt",
+    "ltd",
+    "ltda",
+    "lu",
+    "lundbeck",
+    "lupin",
+    "luxe",
+    "luxury",
+    "lv",
+    "ly",
+    "ma",
+    "macys",
+    "madrid",
+    "maif",
+    "maison",
+    "makeup",
+    "man",
+    "management",
+    "mango",
+    "market",
+    "marketing",
+    "markets",
+    "marriott",
+    "marshalls",
+    "maserati",
+    "mattel",
+    "mba",
+    "mc",
+    "mcd",
+    "mcdonalds",
+    "mckinsey",
+    "md",
+    "me",
+    "med",
+    "media",
+    "meet",
+    "melbourne",
+    "meme",
+    "memorial",
+    "men",
+    "menu",
+    "meo",
+    "metlife",
+    "mg",
+    "mh",
+    "miami",
+    "microsoft",
+    "mil",
+    "mini",
+    "mint",
+    "mit",
+    "mitsubishi",
+    "mk",
+    "ml",
+    "mlb",
+    "mls",
+    "mm",
+    "mma",
+    "mn",
+    "mo",
+    "mobi",
+    "mobile",
+    "mobily",
+    "moda",
+    "moe",
+    "moi",
+    "mom",
+    "monash",
+    "money",
+    "monster",
+    "montblanc",
+    "mopar",
+    "mormon",
+    "mortgage",
+    "moscow",
+    "moto",
+    "motorcycles",
+    "mov",
+    "movie",
+    "movistar",
+    "mp",
+    "mq",
+    "mr",
+    "ms",
+    "msd",
+    "mt",
+    "mtn",
+    "mtr",
+    "mu",
+    "museum",
+    "mutual",
+    "mv",
+    "mw",
+    "mx",
+    "my",
+    "mz",
+    "na",
+    "nab",
+    "nadex",
+    "nagoya",
+    "name",
+    "nationwide",
+    "natura",
+    "navy",
+    "nba",
+    "nc",
+    "ne",
+    "nec",
+    "net",
+    "netbank",
+    "netflix",
+    "network",
+    "neustar",
+    "new",
+    "newholland",
+    "news",
+    "next",
+    "nextdirect",
+    "nexus",
+    "nf",
+    "nfl",
+    "ng",
+    "ngo",
+    "nhk",
+    "ni",
+    "nico",
+    "nike",
+    "nikon",
+    "ninja",
+    "nissay",
+    "nl",
+    "no",
+    "nokia",
+    "northwesternmutual",
+    "norton",
+    "now",
+    "nowruz",
+    "nowtv",
+    "np",
+    "nr",
+    "nra",
+    "nrw",
+    "ntt",
+    "nu",
+    "nyc",
+    "nz",
+    "obi",
+    "observer",
+    "off",
+    "office",
+    "okinawa",
+    "olayangroup",
+    "oldnavy",
+    "ollo",
+    "om",
+    "omega",
+    "one",
+    "ong",
+    "onl",
+    "online",
+    "onyourside",
+    "ooo",
+    "open",
+    "oracle",
+    "orange",
+    "org",
+    "organic",
+    "origins",
+    "osaka",
+    "otsuka",
+    "ott",
+    "ovh",
+    "pa",
+    "page",
+    "pamperedchef",
+    "panasonic",
+    "panerai",
+    "paris",
+    "pars",
+    "partners",
+    "parts",
+    "party",
+    "passagens",
+    "pay",
+    "pccw",
+    "pe",
+    "pet",
+    "pf",
+    "pfizer",
+    "pg",
+    "ph",
+    "pharmacy",
+    "philips",
+    "phone",
+    "photo",
+    "photography",
+    "photos",
+    "physio",
+    "piaget",
+    "pics",
+    "pictet",
+    "pictures",
+    "pid",
+    "pin",
+    "ping",
+    "pink",
+    "pioneer",
+    "pizza",
+    "pk",
+    "pl",
+    "place",
+    "play",
+    "playstation",
+    "plumbing",
+    "plus",
+    "pm",
+    "pn",
+    "pnc",
+    "pohl",
+    "poker",
+    "politie",
+    "porn",
+    "post",
+    "pr",
+    "pramerica",
+    "praxi",
+    "press",
+    "prime",
+    "pro",
+    "prod",
+    "productions",
+    "prof",
+    "progressive",
+    "promo",
+    "properties",
+    "property",
+    "protection",
+    "pru",
+    "prudential",
+    "ps",
+    "pt",
+    "pub",
+    "pw",
+    "pwc",
+    "py",
+    "qa",
+    "qpon",
+    "quebec",
+    "quest",
+    "qvc",
+    "racing",
+    "radio",
+    "raid",
+    "re",
+    "read",
+    "realestate",
+    "realtor",
+    "realty",
+    "recipes",
+    "red",
+    "redstone",
+    "redumbrella",
+    "rehab",
+    "reise",
+    "reisen",
+    "reit",
+    "reliance",
+    "ren",
+    "rent",
+    "rentals",
+    "repair",
+    "report",
+    "republican",
+    "rest",
+    "restaurant",
+    "review",
+    "reviews",
+    "rexroth",
+    "rich",
+    "richardli",
+    "ricoh",
+    "rightathome",
+    "ril",
+    "rio",
+    "rip",
+    "rmit",
+    "ro",
+    "rocher",
+    "rocks",
+    "rodeo",
+    "rogers",
+    "room",
+    "rs",
+    "rsvp",
+    "ru",
+    "rugby",
+    "ruhr",
+    "run",
+    "rw",
+    "rwe",
+    "ryukyu",
+    "sa",
+    "saarland",
+    "safe",
+    "safety",
+    "sakura",
+    "sale",
+    "salon",
+    "samsclub",
+    "samsung",
+    "sandvik",
+    "sandvikcoromant",
+    "sanofi",
+    "sap",
+    "sapo",
+    "sarl",
+    "sas",
+    "save",
+    "saxo",
+    "sb",
+    "sbi",
+    "sbs",
+    "sc",
+    "sca",
+    "scb",
+    "schaeffler",
+    "schmidt",
+    "scholarships",
+    "school",
+    "schule",
+    "schwarz",
+    "science",
+    "scjohnson",
+    "scor",
+    "scot",
+    "sd",
+    "se",
+    "seat",
+    "secure",
+    "security",
+    "seek",
+    "select",
+    "sener",
+    "server",
+    "services",
+    "ses",
+    "seven",
+    "sew",
+    "sex",
+    "sexy",
+    "sfr",
+    "sg",
+    "sh",
+    "shangrila",
+    "sharp",
+    "shaw",
+    "shell",
+    "shia",
+    "shiksha",
+    "shoes",
+    "shop",
+    "shopping",
+    "shouji",
+    "show",
+    "showtime",
+    "shriram",
+    "si",
+    "silk",
+    "sina",
+    "singles",
+    "site",
+    "sj",
+    "sk",
+    "ski",
+    "skin",
+    "sky",
+    "skype",
+    "sl",
+    "sling",
+    "sm",
+    "smart",
+    "smile",
+    "sn",
+    "sncf",
+    "so",
+    "soccer",
+    "social",
+    "softbank",
+    "software",
+    "sohu",
+    "solar",
+    "solutions",
+    "song",
+    "sony",
+    "soy",
+    "space",
+    "spiegel",
+    "spot",
+    "spreadbetting",
+    "sr",
+    "srl",
+    "srt",
+    "st",
+    "stada",
+    "staples",
+    "star",
+    "starhub",
+    "statefarm",
+    "statoil",
+    "stc",
+    "stcgroup",
+    "stockholm",
+    "storage",
+    "store",
+    "stream",
+    "studio",
+    "study",
+    "style",
+    "su",
+    "sucks",
+    "supplies",
+    "supply",
+    "support",
+    "surf",
+    "surgery",
+    "suzuki",
+    "sv",
+    "swatch",
+    "swiftcover",
+    "swiss",
+    "sx",
+    "sy",
+    "sydney",
+    "symantec",
+    "systems",
+    "sz",
+    "tab",
+    "taipei",
+    "talk",
+    "taobao",
+    "target",
+    "tatar",
+    "tattoo",
+    "tax",
+    "taxi",
+    "tc",
+    "tci",
+    "td",
+    "tdk",
+    "team",
+    "tech",
+    "technology",
+    "tel",
+    "telecity",
+    "telefonica",
+    "temasek",
+    "tennis",
+    "teva",
+    "tf",
+    "tg",
+    "th",
+    "thd",
+    "theater",
+    "theatre",
+    "tiaa",
+    "tickets",
+    "tienda",
+    "tiffany",
+    "tips",
+    "tires",
+    "tirol",
+    "tj",
+    "tjmaxx",
+    "tjx",
+    "tk",
+    "tkmaxx",
+    "tl",
+    "tm",
+    "tmall",
+    "tn",
+    "to",
+    "today",
+    "tokyo",
+    "tools",
+    "top",
+    "toray",
+    "toshiba",
+    "total",
+    "tours",
+    "town",
+    "toyota",
+    "toys",
+    "tr",
+    "trade",
+    "trading",
+    "training",
+    "travel",
+    "travelersinsurance",
+    "trust",
+    "trv",
+    "tt",
+    "tube",
+    "tui",
+    "tunes",
+    "tushu",
+    "tv",
+    "tvs",
+    "tw",
+    "tz",
+    "ua",
+    "ubank",
+    "ubs",
+    "uconnect",
+    "ug",
+    "uk",
+    "unicom",
+    "university",
+    "uno",
+    "uol",
+    "ups",
+    "us",
+    "uy",
+    "uz",
+    "va",
+    "vacations",
+    "vana",
+    "vanguard",
+    "vc",
+    "ve",
+    "vegas",
+    "ventures",
+    "verisign",
+    "versicherung",
+    "vet",
+    "vg",
+    "vi",
+    "viajes",
+    "video",
+    "vig",
+    "viking",
+    "villas",
+    "vin",
+    "vip",
+    "virgin",
+    "visa",
+    "vision",
+    "vista",
+    "vistaprint",
+    "viva",
+    "vivo",
+    "vlaanderen",
+    "vn",
+    "vodka",
+    "volkswagen",
+    "volvo",
+    "vote",
+    "voting",
+    "voto",
+    "voyage",
+    "vu",
+    "vuelos",
+    "wales",
+    "walmart",
+    "walter",
+    "wang",
+    "wanggou",
+    "warman",
+    "watch",
+    "watches",
+    "weatherchannel",
+    "webcam",
+    "weber",
+    "website",
+    "wed",
+    "wedding",
+    "weibo",
+    "weir",
+    "wf",
+    "whoswho",
+    "wien",
+    "wiki",
+    "williamhill",
+    "win",
+    "windows",
+    "wine",
+    "winners",
+    "wme",
+    "wolterskluwer",
+    "woodside",
+    "work",
+    "works",
+    "world",
+    "wow",
+    "ws",
+    "wtc",
+    "wtf",
+    "xbox",
+    "xerox",
+    "xfinity",
+    "xihuan",
+    "xin",
+    "xn--11b4c3d",
+    "xn--1ck2e1b",
+    "xn--1qqw23a",
+    "xn--30rr7y",
+    "xn--3bst00m",
+    "xn--3ds443g",
+    "xn--3e0b707e",
+    "xn--3oq18vl8pn36a",
+    "xn--3pxu8k",
+    "xn--42c2d9a",
+    "xn--45q11c",
+    "xn--4gbrim",
+    "xn--54b7fta0cc",
+    "xn--55qx5d",
+    "xn--5su34j936bgsg",
+    "xn--5tzm5g",
+    "xn--6frz82g",
+    "xn--6qq986b3xl",
+    "xn--80adxhks",
+    "xn--80asehdb",
+    "xn--80aswg",
+    "xn--8y0a063a",
+    "xn--90a3ac",
+    "xn--90ais",
+    "xn--9et52u",
+    "xn--9krt00a",
+    "xn--b4w605ferd",
+    "xn--bck1b9a5dre4c",
+    "xn--c1avg",
+    "xn--c2br7g",
+    "xn--cck2b3b",
+    "xn--cg4bki",
+    "xn--clchc0ea0b2g2a9gcd",
+    "xn--czr694b",
+    "xn--czru2d",
+    "xn--d1alf",
+    "xn--e1a4c",
+    "xn--eckvdtc9d",
+    "xn--efvy88h",
+    "xn--estv75g",
+    "xn--fct429k",
+    "xn--fiq64b",
+    "xn--fiqs8s",
+    "xn--flw351e",
+    "xn--fpcrj9c3d",
+    "xn--fzc2c9e2c",
+    "xn--fzys8d69uvgm",
+    "xn--g2xx48c",
+    "xn--gecrj9c",
+    "xn--gk3at1e",
+    "xn--h2brj9c",
+    "xn--hxt814e",
+    "xn--i1b6b1a6a2e",
+    "xn--imr513n",
+    "xn--io0a7i",
+    "xn--j1aef",
+    "xn--j1amh",
+    "xn--j6w193g",
+    "xn--jlq61u9w7b",
+    "xn--jvr189m",
+    "xn--kcrx77d1x4a",
+    "xn--kprw13d",
+    "xn--kpry57d",
+    "xn--kput3i",
+    "xn--l1acc",
+    "xn--lgbbat1ad8j",
+    "xn--mgba3a3ejt",
+    "xn--mgba3a4f16a",
+    "xn--mgbaam7a8h",
+    "xn--mgbab2bd",
+    "xn--mgbayh7gpa",
+    "xn--mgbb9fbpob",
+    "xn--mgbca7dzdo",
+    "xn--mgberp4a5d4ar",
+    "xn--mgbpl2fh",
+    "xn--mgbt3dhd",
+    "xn--mgbtx2b",
+    "xn--mgbx4cd0ab",
+    "xn--mk1bu44c",
+    "xn--mxtq1m",
+    "xn--ngbc5azd",
+    "xn--ngbe9e0a",
+    "xn--node",
+    "xn--nqv7fs00ema",
+    "xn--nyqy26a",
+    "xn--o3cw4h",
+    "xn--ogbpf8fl",
+    "xn--p1acf",
+    "xn--p1ai",
+    "xn--pbt977c",
+    "xn--pgbs0dh",
+    "xn--pssy2u",
+    "xn--q9jyb4c",
+    "xn--qcka1pmc",
+    "xn--qxam",
+    "xn--rhqv96g",
+    "xn--rovu88b",
+    "xn--ses554g",
+    "xn--t60b56a",
+    "xn--tckwe",
+    "xn--tiq49xqyj",
+    "xn--unup4y",
+    "xn--vermgensberatung-pwb",
+    "xn--vhquv",
+    "xn--vuq861b",
+    "xn--w4r85el8fhu5dnra",
+    "xn--w4rs40l",
+    "xn--wgbh1c",
+    "xn--wgbl6a",
+    "xn--xhq521b",
+    "xn--xkc2al3hye2a",
+    "xn--xkc2dl3a5ee0h",
+    "xn--y9a3aq",
+    "xn--yfro4i67o",
+    "xn--ygbi2ammx",
+    "xn--zfr164b",
+    "xperia",
+    "xxx",
+    "xyz",
+    "yachts",
+    "yahoo",
+    "yamaxun",
+    "yandex",
+    "ye",
+    "yodobashi",
+    "yoga",
+    "yokohama",
+    "you",
+    "youtube",
+    "yt",
+    "yun",
+    "za",
+    "zappos",
+    "zara",
+    "zero",
+    "zip",
+    "zippo",
+    "zm",
+    "zone",
+    "zuerich",
+    "zw"
+};
+
+static const int nb_valid_tld = (int) (sizeof(valid_tld) / sizeof(const char *));
+
+void DnsStats::CheckTld(uint32_t length, uint8_t * lower_case_tld)
+{
+    int low = -1;
+    int high = nb_valid_tld;
+    int x = (high + low) / 2;
+    bool is_valid = false;
+    int cmp;
+
+    for (;;)
+    {
+        /* compare tld & valid_tld[x] */
+        uint32_t i = 0;
+        cmp = 0;
+
+        for (i = 0; i < length; i++)
+        {
+            if (valid_tld[x][i] == 0)
+            {
+                cmp = 1;
+                break;
+            }
+            else if (((uint8_t)valid_tld[x][i]) > lower_case_tld[i])
+            {
+                cmp = -1;
+                break;
+            }
+            else if (((uint8_t)valid_tld[x][i]) < lower_case_tld[i])
+            {
+                cmp = 1;
+                break;
+            }
+        }
+
+        if (cmp == 0 && valid_tld[x][i] != 0)
+        {
+            cmp = -1;
+        }
+
+        if (cmp == 0)
+        {
+            break;
+        }
+        else if (cmp < 0)
+        {
+            high = x;
+        }
+        else
+        {
+            low = x;
+        }
+
+        x = (low + high) / 2;
+
+        if (x <= low || x >= high)
+        {
+            break;
+        }
+    }
+
+    if (cmp != 0)
+    {
+        error_flags |= DNS_REGISTRY_ERROR_TLD;
+    }
+}
+
 
 
 /*
@@ -915,6 +2640,7 @@ void DnsStats::PrintOptOption(FILE * F, uint32_t option)
 void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
 {
     bool is_response;
+    bool has_header = true;
     uint32_t flags = 0;
     uint32_t opcode = 0;
     uint32_t rcode = 0;
@@ -927,60 +2653,94 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     uint32_t e_length = 512;
     uint32_t tc_bit = 0;
 
+    error_flags = 0;
+
     if (length < 12)
     {
-        return;
+        error_flags |= DNS_REGISTRY_ERROR_FORMAT;
+        parse_index = length;
+        has_header = false;
     }
+    else
+    {
+        is_response = ((packet[2] & 128) != 0);
 
-    is_response = ((packet[2] & 128) != 0);
-    flags = ((packet[2] & 7) << 4) | ((packet[3] & 15) >> 4);
-    opcode = (packet[2] >> 3) & 15;
-    rcode = (packet[3] & 15);
-    qdcount = (packet[4] << 8) | packet[5];
-    ancount = (packet[6] << 8) | packet[7];
-    nscount = (packet[8] << 8) | packet[9];
-    arcount = (packet[10] << 8) | packet[11];
+        if (is_response)
+            response_count++;
+        else
+            query_count++;
 
-    SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
+        flags = ((packet[2] & 7) << 4) | ((packet[3] & 15) >> 4);
+        opcode = (packet[2] >> 3) & 15;
+        rcode = (packet[3] & 15);
+        qdcount = (packet[4] << 8) | packet[5];
+        ancount = (packet[6] << 8) | packet[7];
+        nscount = (packet[8] << 8) | packet[9];
+        arcount = (packet[10] << 8) | packet[11];
 
+        SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
+        CheckOpCode(opcode);
 
-    parse_index = 12;
+        parse_index = 12;
+    }
 
     for (uint32_t i = 0; i < qdcount; i++)
     {
-        parse_index = SubmitQuery(packet, length, parse_index);
+        if (parse_index >= length)
+        {
+            error_flags |= DNS_REGISTRY_ERROR_FORMAT;
+        }
+        parse_index = SubmitQuery(packet, length, parse_index, is_response);
     }
 
     for (uint32_t i = 0; i < ancount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL);
+        if (parse_index >= length)
+        {
+            error_flags |= DNS_REGISTRY_ERROR_FORMAT;
+        }
+        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL, is_response);
     }
 
     for (uint32_t i = 0; i < nscount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL);
+        if (parse_index >= length)
+        {
+            error_flags |= DNS_REGISTRY_ERROR_FORMAT;
+        }
+        parse_index = SubmitRecord(packet, length, parse_index, NULL, NULL, is_response);
     }
 
     for (uint32_t i = 0; i < arcount; i++)
     {
-        parse_index = SubmitRecord(packet, length, parse_index, &e_rcode, &e_length);
+        if (parse_index >= length)
+        {
+            error_flags |= DNS_REGISTRY_ERROR_FORMAT;
+        }
+        parse_index = SubmitRecord(packet, length, parse_index, &e_rcode, &e_length, is_response);
     }
 
-    if (is_response)
+    if (has_header)
     {
-        SubmitRegistryNumber(REGISTRY_DNS_Response_Size, length);
-        rcode |= (e_rcode << 4);
-        SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
-        if ((flags & (1 << 5)) != 0)
+        if (is_response)
         {
-            SubmitRegistryNumber(REGISTRY_DNS_TC_length, e_length);
+            SubmitRegistryNumber(REGISTRY_DNS_Response_Size, length);
+            rcode |= (e_rcode << 4);
+            CheckRCode(rcode);
+            SubmitRegistryNumber(REGISTRY_DNS_RCODES, rcode);
+            if ((flags & (1 << 5)) != 0)
+            {
+                SubmitRegistryNumber(REGISTRY_DNS_TC_length, e_length);
+            }
+        }
+        else
+        {
+            SubmitRegistryNumber(REGISTRY_DNS_Query_Size, length);
+            SubmitRegistryNumber(REGISTRY_EDNS_Packet_Size, e_length);
         }
     }
-    else
-    {
-        SubmitRegistryNumber(REGISTRY_DNS_Query_Size, length);
-        SubmitRegistryNumber(REGISTRY_EDNS_Packet_Size, e_length);
-    }
+
+    SubmitRegistryNumber(REGISTRY_DNS_error_flag, error_flags);
 }
 
 bool DnsStats::ExportToCsv(char * fileName)
@@ -1022,7 +2782,7 @@ bool DnsStats::ExportToCsv(char * fileName)
                 }
                 else
                 {
-                    fprintf(F, """%s,""", entry->key_value);
+                    fprintf(F, """%s"",", entry->key_value);
                 }
 
                 if (entry->registry_id == REGISTRY_DNS_RRType ||
@@ -1058,6 +2818,10 @@ bool DnsStats::ExportToCsv(char * fileName)
                 else if (entry->registry_id == REGISTRY_EDNS_OPT_CODE)
                 {
                     PrintOptOption(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_DNS_error_flag)
+                {
+                    PrintErrorFlags(F, entry->key_number);
                 }
                 else 
                 {

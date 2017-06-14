@@ -29,6 +29,19 @@
 #define	REGISTRY_DNS_Query_Size 19
 #define	REGISTRY_DNS_Response_Size 20
 #define	REGISTRY_DNS_TC_length 21
+#define	REGISTRY_TLD_query 22
+#define	REGISTRY_TLD_response 23
+#define	REGISTRY_DNS_error_flag 24
+
+#define DNS_REGISTRY_ERROR_RRTYPE (1<<0)
+#define DNS_REGISTRY_ERROR_RRCLASS (1<<1)
+#define DNS_REGISTRY_ERROR_OPCODE (1<<2)
+#define DNS_REGISTRY_ERROR_RCODE (1<<3)
+#define DNS_REGISTRY_ERROR_KALGO (1<<4)
+#define DNS_REGISTRY_ERROR_OPTO (1<<5)
+#define DNS_REGISTRY_ERROR_TLD (1<<6)
+#define DNS_REGISTRY_ERROR_LABEL (1<<7)
+#define DNS_REGISTRY_ERROR_FORMAT (1<<8)
 
 /*
  * Accumulate statistics:
@@ -92,10 +105,16 @@ public:
 
     bool ExportToCsv(char* fileName);
 
+    int record_count; 
+    int query_count;
+    int response_count;
+    uint32_t error_flags;
+
 private:
-    int SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start);
-    int SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, uint32_t * e_rcode, uint32_t * e_length);
-    int SubmitName(uint8_t * packet, uint32_t length, uint32_t start);
+    int SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start, bool is_response);
+    int SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start, 
+        uint32_t * e_rcode, uint32_t * e_length, bool is_response);
+    int SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint32_t registryId);
 
     void SubmitOPTRecord(uint32_t flags, uint8_t * content, uint32_t length, uint32_t * e_rcode);
     void SubmitKeyRecord(uint8_t * content, uint32_t length);
@@ -113,6 +132,15 @@ private:
     void PrintEDnsFlags(FILE* F, uint32_t flag);
     void PrintKeyAlgorithm(FILE* F, uint32_t algo);
     void PrintOptOption(FILE* F, uint32_t option);
+    void PrintErrorFlags(FILE* F, uint32_t flags);
+
+    void CheckRRType(uint32_t rrtype);
+    void CheckRRClass(uint32_t rrclass);
+    void CheckOpCode(uint32_t opcode);
+    void CheckRCode(uint32_t rcode);
+    void CheckKeyAlgorithm(uint32_t algo);
+    void CheckOptOption(uint32_t option);
+    void CheckTld(uint32_t length, uint8_t * lower_case_tld);
 
 };
 
