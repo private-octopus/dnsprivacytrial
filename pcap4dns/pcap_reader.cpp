@@ -132,8 +132,8 @@ bool pcap_reader::ReadNext()
 
         if (ret)
         {
-            int bytes_read = fread(buffer, 1, frame_header.incl_len, F_pcap);
-            ret = (bytes_read == frame_header.incl_len);
+            int uint8_ts_read = fread(buffer, 1, frame_header.incl_len, F_pcap);
+            ret = (uint8_ts_read == frame_header.incl_len);
         }
     }
 

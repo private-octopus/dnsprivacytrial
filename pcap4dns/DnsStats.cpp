@@ -123,6 +123,42 @@ bool DnsStatHash::InsertOrAdd(dns_registry_entry_t* key, bool need_alloc)
     return ret;
 }
 
+bool DnsStatHash::Retrieve(dns_registry_entry_t * key, uint32_t * count)
+{
+    bool ret = false; 
+    unsigned int hash_index;
+
+    *count = 0;
+    key->hash = ComputeHash(key);
+    hash_index = key->hash%tableSize;
+
+    for (unsigned int i = 0; i < tableSize; i++)
+    {
+        if (hashTable[hash_index] == NULL)
+        {
+            break;
+        }
+        else if (IsSameKey(hashTable[hash_index], key))
+        {
+            /* found it. return the count */
+            *count = hashTable[hash_index]->count;
+            ret = true;
+            break;
+        }
+        else
+        {
+            hash_index++;
+
+            if (hash_index >= tableSize)
+            {
+                hash_index = 0;
+            }
+        }
+    }
+
+    return ret;
+}
+
 uint32_t DnsStatHash::GetCount() {
     return tableCount;
 }
@@ -258,7 +294,8 @@ static char const * RegistryNameById[] = {
     "TC Length",
     "Z-Q-TLD",
     "Z-R-TLD",
-    "Z-Error Flags"
+    "Z-Error Flags",
+    "TLD Error Class"
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
@@ -390,6 +427,61 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
     return start;
 }
 
+static char const * common_bad_tld[] = {
+    "local",
+    "home",
+    "ip",
+    "localdomain",
+    "dhcp",
+    "localhost",
+    "lan",
+    "telus",
+    "internal",
+    "belkin",
+    "invalid",
+    "workgroup",
+    "domain",
+    "corp",
+    "comg",
+    "homestation",
+    "router",
+    "gateway",
+    "nashr",
+    "pk5001z",
+    "pvt",
+    "rbl",
+    "toj",
+    "_tcp",
+    "actdsltmp",
+    "dlinkrouter",
+    "guest",
+    "intra",
+    "intranet",
+    "reviewimages",
+    "totolink",
+    "airdream",
+    "dlink",
+    "station",
+    "tendaap",
+    "_nfsv4idmapdomain",
+    "arris",
+    "be",
+    "blinkap",
+    "enterprise",
+    "mickeymouse",
+    "netg",
+    "openstacklocal",
+    "private",
+    "realtek",
+    "site",
+    "wimax",
+    "domainname",
+    "server",
+    "yfserver"
+};
+
+const uint32_t nb_common_bad_tld = sizeof(common_bad_tld) / sizeof(char const *);
+
 int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint32_t registryId)
 {
     uint32_t l = 0;
@@ -405,11 +497,20 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint
         if (l == 0)
         {
             /* end of parsing*/
+
             SubmitRegistryNumber(REGISTRY_DNS_LabelType, 0);
 
             if (previous != 0)
             {
                 uint32_t l_tld = packet[previous];
+                uint32_t tld_flags = 0;
+                bool has_letter = false;
+                bool has_number = false;
+                bool has_special = false;
+                bool has_dash = false;
+                bool has_non_ascii = false;
+
+
 
                 if (l_tld > 0 && l_tld <= 63)
                 {
@@ -419,15 +520,81 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint
                         if (c >= 'A' && c <= 'Z')
                         {
                             c += 'a' - 'A';
+                            has_letter = true;
                         }
-                        else if (c <= ' ' || c >= 127 || c == '"' || c == ',')
+                        else if (c >= 'a' && c <= 'z')
+                        {
+                            has_letter = true;
+                        }
+                        else if (c >= '0' && c <= '9')
+                        {
+                            has_number = true;
+                        }
+                        else if (c == '-' || c == '_')
+                        {
+                            has_dash = true;
+                        }
+                        else if (c > 127)
+                        {
+                            has_non_ascii = true;
+                        }
+                        else if (c <= ' ' || c == 127 || c == '"' || c == ',')
                         {
                             c = '?';
+                            has_special = true;
+                        }
+                        else
+                        {
+                            has_special = true;
                         }
                         lower_case_tld[i] = c;
                     }
+                    lower_case_tld[l_tld] = 0;
 
-                    CheckTld(l_tld, lower_case_tld);
+                    if (!CheckTld(l_tld, lower_case_tld))
+                    {
+                        /* Analyze of non expected TLD */
+                        uint32_t tld_type = 0;
+                        bool found = false;
+
+                        for (uint32_t i = 0; i < nb_common_bad_tld; i++)
+                        {
+                            if (strcmp((const char *)lower_case_tld, common_bad_tld[i]) == 0)
+                            {
+                                found = true;
+                                tld_type = i;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            if (has_non_ascii)
+                            {
+                                tld_type = 62;
+                            }
+                            else if (has_special)
+                            {
+                                tld_type = 63;
+                            }
+                            else
+                            {
+                                tld_type = l_tld;
+                                if (has_letter)
+                                {
+                                    tld_type += 64;
+                                }
+                                if (has_number)
+                                {
+                                    tld_type += 128;
+                                }
+                                if (has_dash)
+                                {
+                                    tld_type += 256;
+                                }
+                            }
+                        }
+                        SubmitRegistryNumber(REGISTRY_TLD_error_class, tld_type);
+                    }
 
                     if (registryId != 0)
                     {
@@ -990,6 +1157,49 @@ void DnsStats::PrintErrorFlags(FILE * F, uint32_t flags)
         }
         flags_name[n] = 0;
         fprintf(F, """%s"",", flags_name);
+    }
+}
+
+static char const * tld_name_format[] = {
+    "unknown format",
+    "all letters",
+    "all numbers",
+    "alpha_num",
+    "dash",
+    "alpha_dash",
+    "num_dash",
+    "alpha_num_dash",
+};
+
+const uint32_t nb_tld_name_format = sizeof(tld_name_format) / sizeof(char const *);
+
+void DnsStats::PrintTldErrorClass(FILE * F, uint32_t tld_error_class)
+{
+    if (tld_error_class < nb_common_bad_tld)
+    {
+        fprintf(F, """.%s"",", common_bad_tld[tld_error_class]);
+    }
+    else if (tld_error_class == 62)
+    {
+        fprintf(F, """Non ASCII"",");
+    }
+    else if (tld_error_class == 63)
+    {
+        fprintf(F, """Special chars"",");
+    }
+    else
+    {
+        uint32_t name_format = tld_error_class / 64;
+        uint32_t name_length = tld_error_class % 64;
+
+        if (name_format < nb_tld_name_format)
+        {
+            fprintf(F, """%s (%d)"",", tld_name_format[name_format], name_length);
+        }
+        else
+        {
+            fprintf(F, """Unknown(%d)"",", tld_error_class);
+        }
     }
 }
 
@@ -2542,13 +2752,14 @@ static char const *  valid_tld[] = {
 
 static const int nb_valid_tld = (int) (sizeof(valid_tld) / sizeof(const char *));
 
-void DnsStats::CheckTld(uint32_t length, uint8_t * lower_case_tld)
+bool DnsStats::CheckTld(uint32_t length, uint8_t * lower_case_tld)
 {
     int low = -1;
     int high = nb_valid_tld;
     int x = (high + low) / 2;
     bool is_valid = false;
     int cmp;
+    bool ret = true;
 
     for (;;)
     {
@@ -2604,7 +2815,10 @@ void DnsStats::CheckTld(uint32_t length, uint8_t * lower_case_tld)
     if (cmp != 0)
     {
         error_flags |= DNS_REGISTRY_ERROR_TLD;
+        ret = false;
     }
+
+    return ret;
 }
 
 
@@ -2822,6 +3036,10 @@ bool DnsStats::ExportToCsv(char * fileName)
                 else if (entry->registry_id == REGISTRY_DNS_error_flag)
                 {
                     PrintErrorFlags(F, entry->key_number);
+                }
+                else if (entry->registry_id == REGISTRY_TLD_error_class)
+                {
+                    PrintTldErrorClass(F, entry->key_number);
                 }
                 else 
                 {

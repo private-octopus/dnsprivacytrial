@@ -32,6 +32,7 @@
 #define	REGISTRY_TLD_query 22
 #define	REGISTRY_TLD_response 23
 #define	REGISTRY_DNS_error_flag 24
+#define	REGISTRY_TLD_error_class 25
 
 #define DNS_REGISTRY_ERROR_RRTYPE (1<<0)
 #define DNS_REGISTRY_ERROR_RRCLASS (1<<1)
@@ -75,6 +76,7 @@ public:
 
     bool Resize(unsigned tableSize);
     bool InsertOrAdd(dns_registry_entry_t * key, bool need_alloc=true);
+    bool Retrieve(dns_registry_entry_t * key, uint32_t * count);
 
     uint32_t GetCount();
 
@@ -133,6 +135,7 @@ private:
     void PrintKeyAlgorithm(FILE* F, uint32_t algo);
     void PrintOptOption(FILE* F, uint32_t option);
     void PrintErrorFlags(FILE* F, uint32_t flags);
+    void PrintTldErrorClass(FILE* F, uint32_t tld_error_class);
 
     void CheckRRType(uint32_t rrtype);
     void CheckRRClass(uint32_t rrclass);
@@ -140,7 +143,7 @@ private:
     void CheckRCode(uint32_t rcode);
     void CheckKeyAlgorithm(uint32_t algo);
     void CheckOptOption(uint32_t option);
-    void CheckTld(uint32_t length, uint8_t * lower_case_tld);
+    bool CheckTld(uint32_t length, uint8_t * lower_case_tld);
 
 };
 

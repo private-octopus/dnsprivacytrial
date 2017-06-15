@@ -142,6 +142,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dnsdump.h" />
     <ClInclude Include="DnsStats.h" />
     <ClInclude Include="linktype.h" />
     <ClInclude Include="pcap_reader.h" />
@@ -149,6 +150,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dnsdump.cpp" />
     <ClCompile Include="DnsStats.cpp" />
     <ClCompile Include="pcap4dns.cpp" />
     <ClCompile Include="pcap_reader.cpp" />
