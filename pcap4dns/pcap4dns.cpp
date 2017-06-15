@@ -15,12 +15,17 @@ int main(int argc, char ** argv)
 {
     pcap_reader reader;
     int nb_records_read = 0;
+    int nb_extracted = 0;
     bool found_v4 = false;
     bool found_v6 = false;
     DnsStats stats;
     int nb_udp_dns = 0;
+    int nb_udp_dns_frag = 0;
+    int nb_udp_dns_extract = 0;
     char * inputFile = (char *) "smalltest.pcap";
     char * csv_file = (char *) "smalltest.csv";
+    char * extract_file = NULL;
+    int extract_by_error_type[512] = { 0 };
 
     if (argc > 1)
     {
@@ -29,10 +34,15 @@ int main(int argc, char ** argv)
         if (argc > 2)
         {
             csv_file = argv[2];
+
+            if (argc > 3)
+            {
+                extract_file = argv[3];
+            }
         }
     }
 
-    if (reader.Open(inputFile))
+    if (reader.Open(inputFile, extract_file))
     {
         printf("Open succeeds, magic = %x, v =  %d/%d, lmax = %d, net = %x\n",
             reader.header.magic_number,
@@ -60,13 +70,35 @@ int main(int argc, char ** argv)
             if (reader.tp_version == 17 &&
                 (reader.tp_port1 == 53 || reader.tp_port2 == 53))
             {
-                stats.SubmitPacket(reader.buffer + reader.tp_offset + 8,
-                    reader.tp_length - 8);
-                nb_udp_dns++;
+
+                if (reader.is_fragment)
+                {
+                    nb_udp_dns_frag++;
+                }
+                else
+                {
+                    stats.SubmitPacket(reader.buffer + reader.tp_offset + 8,
+                        reader.tp_length - 8);
+                    nb_udp_dns++;
+
+                    /* Apply default logic here for selecting what to extract */
+                    if (stats.error_flags > 0 && stats.error_flags < 512)
+                    {
+                        if (extract_by_error_type[stats.error_flags] < 5 ||
+                            (stats.error_flags == 64 &&
+                                extract_by_error_type[stats.error_flags] < 512))
+                        {
+                            reader.WriteExtract();
+                            extract_by_error_type[stats.error_flags] += 1;
+                            nb_extracted++;
+                        }
+                    }
+                }
             }
         }
 
-        printf("Read %d records, %d dns records.\n", nb_records_read, nb_udp_dns);
+        printf("Read %d records, %d dns records.\nSkipped %d fragments.\nExtracted %d records.\n",
+            nb_records_read, nb_udp_dns, nb_udp_dns_frag, nb_extracted);
 
         if (stats.ExportToCsv(csv_file))
         {

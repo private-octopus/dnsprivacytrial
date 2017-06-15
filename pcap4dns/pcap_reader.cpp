@@ -3,6 +3,7 @@
 pcap_reader::pcap_reader()
     :
     F_pcap(NULL),
+    F_extract(NULL),
     is_wrong_endian(false),
     buffer_size(0),
     buffer (NULL),
@@ -12,7 +13,9 @@ pcap_reader::pcap_reader()
     tp_offset(0),
     tp_length(0),
     tp_port1(0),
-    tp_port2(0)
+    tp_port2(0),
+    is_fragment(false),
+    fragment_length(0)
 {
 }
 
@@ -25,17 +28,23 @@ pcap_reader::~pcap_reader()
         F_pcap = NULL;
     }
 
+    if (F_extract != NULL)
+    {
+        fclose(F_extract);
+        F_extract = NULL;
+    }
+
     if (buffer != NULL)
     {
         delete[] buffer;
     }
 }
 
-bool pcap_reader::Open(char * f_name)
+bool pcap_reader::Open(char * f_name, char * f_extract_name)
 {
     bool ret = true;
 
-    if (F_pcap != NULL)
+    if (F_pcap != NULL || F_extract != NULL)
     {
         ret = false;
     }
@@ -43,9 +52,17 @@ bool pcap_reader::Open(char * f_name)
     {
 #ifdef WINDOWS
         errno_t err = fopen_s(&F_pcap, f_name, "rb");
+        errno_t err2 = (f_extract_name == NULL)? 0:
+            fopen_s(&F_extract, f_extract_name, "wb");
 #else
         F_pcap = fopen(f_name, "rb");
         int err = (F_pcap == NULL) ? -1 : 0;
+
+        if (err != 0 && f_extract_name != NULL)
+        {
+            F_extract = fopen(f_extract_name, "wb");
+            err = (F_extract == NULL) ? -1 : 0;
+        }
 #endif
 
         if (err != 0)
@@ -84,6 +101,11 @@ bool pcap_reader::Open(char * f_name)
             {
                 /* TODO: swap the values.. */
             }
+
+            if (ret && F_extract != NULL)
+            {
+                ret = (fwrite(&header, sizeof(header), 1, F_extract) == 1);
+            }
         }
     }
 
@@ -102,6 +124,8 @@ bool pcap_reader::ReadNext()
     tp_length = 0;
     tp_port1 = 0;
     tp_port2 = 0;
+    is_fragment = false;
+    fragment_length = 0;
 
     if (ret)
     {
@@ -151,6 +175,11 @@ bool pcap_reader::ReadNext()
             if ((buffer[ip_offset] >> 4) == 4)
             {
                 int ip_length = (buffer[ip_offset + 2] << 8) | (buffer[ip_offset + 3]);
+                is_fragment = ((buffer[ip_offset + 6] & 0x20) != 0);
+                fragment_length = (is_fragment) ?
+                    ((buffer[ip_offset + 6] & 0x1F) << 8) | (buffer[ip_offset + 7]) :
+                    ip_length;
+
 
                 ip_version = 4;
 
@@ -179,6 +208,25 @@ bool pcap_reader::ReadNext()
             tp_port1 = (buffer[tp_offset] << 8) | (buffer[tp_offset + 1]);
             tp_port2 = (buffer[tp_offset + 2] << 8) | (buffer[tp_offset + 3]);
         }
+    }
+
+    return ret;
+}
+
+bool pcap_reader::WriteExtract()
+{
+    bool ret = (F_extract != NULL);
+
+    if (ret)
+    {
+        int nb_written = fwrite(&frame_header, sizeof(frame_header), 1, F_extract);
+        ret = nb_written == 1;
+    }
+
+    if (ret)
+    {
+        int uint8_ts_written = fwrite(buffer, 1, frame_header.incl_len, F_extract);
+        ret = (uint8_ts_written == frame_header.incl_len);
     }
 
     return ret;

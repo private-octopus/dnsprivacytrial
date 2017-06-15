@@ -40,13 +40,17 @@ public:
     int tp_version;
     int tp_port1;
     int tp_port2;
+    bool is_fragment;
+    int fragment_length;
 
-    bool Open(char * f_name);
+    bool Open(char * f_name, char * f_extract_name);
 
     bool ReadNext();
+    bool WriteExtract();
 
 private:
     FILE * F_pcap;
+    FILE * F_extract;
 
 };
 
