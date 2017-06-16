@@ -4,257 +4,6 @@
 #include "../dnsPrivacyTrial/DnsTypes.h"
 #include "DnsStats.h"
 
-DnsStatHash::DnsStatHash()
-    :
-    tableSize(0),
-    tableCount(0),
-    hashTable(NULL)
-{
-}
-
-
-DnsStatHash::~DnsStatHash()
-{
-    Clear();
-}
-
-void DnsStatHash::Clear()
-{
-    if (hashTable != NULL)
-    {
-        for (uint32_t i = 0; i < tableSize; i++)
-        {
-            if (hashTable[i] != NULL)
-            {
-                delete hashTable[i];
-                hashTable[i] = NULL;
-            }
-        }
-
-        delete[] hashTable;
-        hashTable = NULL;
-    }
-
-    tableCount = 0;
-    tableSize = 0;
-}
-
-bool DnsStatHash::Resize(unsigned newSize)
-{
-    bool ret = false;
-    dns_registry_entry_t ** oldTable = hashTable;
-    unsigned int oldSize = tableSize;
-
-    if (oldSize >= newSize)
-    {
-        ret = true;
-    }
-    else
-    {
-        dns_registry_entry_t ** newTable = new dns_registry_entry_t*[newSize];
-
-        if (newTable != NULL)
-        {
-            hashTable = newTable;
-            tableSize = newSize;
-            memset(hashTable, 0, sizeof(dns_registry_entry_t *)*tableSize);
-            ret = true;
-            tableCount = 0;
-
-            if (oldTable != NULL)
-            {
-                for (unsigned int i = 0; ret && i < oldSize; i++)
-                {
-                    if (oldTable[i] != NULL)
-                    {
-                        ret = DoInsert(oldTable[i], false);
-                    }
-                }
-
-                if (!ret)
-                {
-                    hashTable = oldTable;
-                    tableSize = oldSize;
-                    delete[] newTable;
-                }
-                else
-                {
-                    delete[] oldTable;
-                }
-            }
-        }
-    }
-
-    return ret;
-}
-
-bool DnsStatHash::InsertOrAdd(dns_registry_entry_t* key, bool need_alloc)
-{
-    bool ret = true;
-    unsigned int newCount = tableCount + 1;
-
-    if (key == 0)
-    {
-        ret = false;
-    }
-    else if (tableSize < 2 * newCount)
-    {
-        unsigned int newSize = tableSize;
-
-        if (tableSize == 0)
-        {
-            newSize = 128;
-        }
-
-        while (newSize < 4 * newCount)
-        {
-            newSize *= 2;
-        }
-
-        ret = Resize(newSize);
-    }
-
-    if (ret)
-    {
-        key->hash = ComputeHash(key);
-        ret = DoInsert(key, need_alloc);
-    }
-
-    return ret;
-}
-
-bool DnsStatHash::Retrieve(dns_registry_entry_t * key, uint32_t * count)
-{
-    bool ret = false; 
-    unsigned int hash_index;
-
-    *count = 0;
-    key->hash = ComputeHash(key);
-    hash_index = key->hash%tableSize;
-
-    for (unsigned int i = 0; i < tableSize; i++)
-    {
-        if (hashTable[hash_index] == NULL)
-        {
-            break;
-        }
-        else if (IsSameKey(hashTable[hash_index], key))
-        {
-            /* found it. return the count */
-            *count = hashTable[hash_index]->count;
-            ret = true;
-            break;
-        }
-        else
-        {
-            hash_index++;
-
-            if (hash_index >= tableSize)
-            {
-                hash_index = 0;
-            }
-        }
-    }
-
-    return ret;
-}
-
-uint32_t DnsStatHash::GetCount() {
-    return tableCount;
-}
-
-uint32_t DnsStatHash::GetSize() {
-    return tableSize;
-}
-
-dns_registry_entry_t * DnsStatHash::GetEntry(uint32_t indx)
-{
-    return (indx < tableSize) ? hashTable[indx] : NULL;
-}
-
-bool DnsStatHash::DoInsert(dns_registry_entry_t* key, bool need_alloc)
-{
-    bool ret = false;
-    unsigned int hash_index = key->hash%tableSize;
-
-    for (unsigned int i = 0; i < tableSize; i++)
-    {
-        if (hashTable[hash_index] == NULL)
-        {
-            if (need_alloc)
-            {
-                hashTable[hash_index] = new dns_registry_entry_t;
-                if (hashTable[hash_index] != NULL)
-                {
-                    memcpy(hashTable[hash_index], key, sizeof(dns_registry_entry_t));
-
-                    tableCount++;
-                    ret = true;
-                }
-                else
-                {
-                    ret = false;
-                }
-            }
-            else
-            {
-                hashTable[hash_index] = key;
-                tableCount++;
-                ret = true;
-            }
-            break;
-        }
-        else if (IsSameKey(hashTable[hash_index], key))
-        {
-            /* found it. Just increment the counter */
-            hashTable[hash_index]->count++;
-            ret = false;
-            break;
-        }
-        else
-        {
-            hash_index++;
-
-            if (hash_index >= tableSize)
-            {
-                hash_index = 0;
-            }
-        }
-    }
-
-    return ret;
-}
-
-uint32_t DnsStatHash::ComputeHash(dns_registry_entry_t * key)
-{
-    uint64_t hash64 = 0;
-
-    hash64 = key->registry_id;
-    hash64 ^= (hash64 << 23) ^ (hash64 >> 17);
-    hash64 ^= key->key_type;
-    hash64 ^= (hash64 << 23) ^ (hash64 >> 17);
-    hash64 ^= key->key_length;
-    hash64 ^= (hash64 << 23) ^ (hash64 >> 17);
-    for (uint32_t i = 0; i < key->key_length; i++)
-    {
-        hash64 ^= key->key_value[i];
-        hash64 ^= (hash64 << 23) ^ (hash64 >> 17);
-    }
-
-    return (uint32_t)(hash64 ^ (hash64 >> 32));
-}
-
-bool DnsStatHash::IsSameKey(dns_registry_entry_t * key1, dns_registry_entry_t * key2)
-{
-    bool ret = key1->hash == key2->hash &&
-        key1->registry_id == key2->registry_id &&
-        key1->key_type == key2->key_type &&
-        key1->key_length == key2->key_length &&
-        memcmp(key1->key_value, key2->key_value, key1->key_length) == 0;
-
-    return ret;
-}
-
 
 DnsStats::DnsStats()
     :
@@ -295,7 +44,8 @@ static char const * RegistryNameById[] = {
     "Z-Q-TLD",
     "Z-R-TLD",
     "Z-Error Flags",
-    "TLD Error Class"
+    "TLD Error Class",
+    "Underlined part"
 };
 
 static uint32_t RegistryNameByIdNb = sizeof(RegistryNameById) / sizeof(char const*);
@@ -304,6 +54,7 @@ int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start, boo
 {
     int rrclass = 0;
     int rrtype = 0;
+    uint32_t name_start = start;
 
     start = SubmitName(packet, length, start,
         (!is_response && query_count < 10000)?REGISTRY_TLD_query:0);
@@ -317,6 +68,12 @@ int DnsStats::SubmitQuery(uint8_t * packet, uint32_t length, uint32_t start, boo
         CheckRRType(rrtype);
         SubmitRegistryNumber(REGISTRY_DNS_Q_CLASSES, rrclass);
         SubmitRegistryNumber(REGISTRY_DNS_Q_RRType, rrtype);
+
+        if (rrtype == DnsRtype_TXT)
+        {
+            SubmitRegistryString(REGISTRY_DNS_txt_underline, 3, (uint8_t *) "TXT");
+            CheckForUnderline(packet, length, name_start);
+        }
     }
     else
     {
@@ -337,8 +94,6 @@ int DnsStats::SubmitRecord(uint8_t * packet, uint32_t length, uint32_t start,
     int name_start = start;
 
     record_count++;
-
-    /* TODO: if TXT record, analyze labels for underscores */
 
     start = SubmitName(packet, length, start, 0);
 
@@ -434,6 +189,7 @@ static char const * common_bad_tld[] = {
     "localdomain",
     "dhcp",
     "localhost",
+    "localnet",
     "lan",
     "telus",
     "internal",
@@ -444,6 +200,7 @@ static char const * common_bad_tld[] = {
     "corp",
     "comg",
     "homestation",
+    "backnet",
     "router",
     "gateway",
     "nashr",
@@ -477,7 +234,10 @@ static char const * common_bad_tld[] = {
     "wimax",
     "domainname",
     "server",
-    "yfserver"
+    "yfserver",
+    "oops",
+    "fco",
+    "public"
 };
 
 const uint32_t nb_common_bad_tld = sizeof(common_bad_tld) / sizeof(char const *);
@@ -504,52 +264,10 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint
             {
                 uint32_t l_tld = packet[previous];
                 uint32_t tld_flags = 0;
-                bool has_letter = false;
-                bool has_number = false;
-                bool has_special = false;
-                bool has_dash = false;
-                bool has_non_ascii = false;
-
-
 
                 if (l_tld > 0 && l_tld <= 63)
                 {
-                    for (uint32_t i = 0; i < l_tld; i++)
-                    {
-                        uint8_t c = packet[previous + 1 + i];
-                        if (c >= 'A' && c <= 'Z')
-                        {
-                            c += 'a' - 'A';
-                            has_letter = true;
-                        }
-                        else if (c >= 'a' && c <= 'z')
-                        {
-                            has_letter = true;
-                        }
-                        else if (c >= '0' && c <= '9')
-                        {
-                            has_number = true;
-                        }
-                        else if (c == '-' || c == '_')
-                        {
-                            has_dash = true;
-                        }
-                        else if (c > 127)
-                        {
-                            has_non_ascii = true;
-                        }
-                        else if (c <= ' ' || c == 127 || c == '"' || c == ',')
-                        {
-                            c = '?';
-                            has_special = true;
-                        }
-                        else
-                        {
-                            has_special = true;
-                        }
-                        lower_case_tld[i] = c;
-                    }
-                    lower_case_tld[l_tld] = 0;
+                    NormalizeNamePart(l_tld, &packet[previous + 1], lower_case_tld, &tld_flags);
 
                     if (!CheckTld(l_tld, lower_case_tld))
                     {
@@ -568,29 +286,17 @@ int DnsStats::SubmitName(uint8_t * packet, uint32_t length, uint32_t start, uint
                         }
                         if (!found)
                         {
-                            if (has_non_ascii)
+                            if ((tld_flags&1) != 0)
                             {
                                 tld_type = 62;
                             }
-                            else if (has_special)
+                            else if ((tld_flags & 2) != 0)
                             {
                                 tld_type = 63;
                             }
                             else
                             {
-                                tld_type = l_tld;
-                                if (has_letter)
-                                {
-                                    tld_type += 64;
-                                }
-                                if (has_number)
-                                {
-                                    tld_type += 128;
-                                }
-                                if (has_dash)
-                                {
-                                    tld_type += 256;
-                                }
+                                tld_type = l_tld + tld_flags;
                             }
                         }
                         SubmitRegistryNumber(REGISTRY_TLD_error_class, tld_type);
@@ -1251,6 +957,159 @@ void DnsStats::CheckOptOption(uint32_t option)
         error_flags |= DNS_REGISTRY_ERROR_OPTO;
     }
 }
+
+int DnsStats::CheckForUnderline(uint8_t * packet, uint32_t length, uint32_t start)
+{
+    uint32_t l = 0;
+    uint32_t offset = 0;
+    uint32_t previous = 0;
+    uint32_t name_start = start;
+    uint8_t lower_case_underline[64];
+
+    while (start < length)
+    {
+        l = packet[start];
+
+        if (l == 0)
+        {
+            /* end of parsing*/
+            start++;
+            break;
+        }
+        else if ((l & 0xC0) == 0xC0)
+        {
+            if ((start + 2) > length)
+            {
+                /* error */
+                start = length;
+                break;
+            }
+            else
+            {
+                uint32_t new_start = ((l & 63) << 8) + packet[start + 1];
+
+                if (new_start < name_start)
+                {
+                    (void)CheckForUnderline(packet, length, new_start);
+                }
+
+                start += 2;
+                break;
+            }
+        }
+        else if (l > 0x3F)
+        {
+            /* found an extension. Don't know how to parse it! */
+            start = length;
+            break;
+        }
+        else
+        {
+            /* Tracking of underscore labels. */
+            if (start + l + 1 > length)
+            {
+                /* format error */
+                start = length;
+                break;
+            }
+            else
+            {
+                if (l > 0 && packet[start + 1] == '_')
+                {
+                    uint8_t underlined_name[64];
+                    uint32_t flags;
+
+                    NormalizeNamePart(l, &packet[start + 1], underlined_name, &flags);
+
+                    if ((flags & 3) == 0)
+                    {
+                        SubmitRegistryString(REGISTRY_DNS_txt_underline, l, underlined_name);
+                    }
+                }
+                previous = start;
+                start += l + 1;
+            }
+        }
+    }
+
+    return start;
+}
+
+void DnsStats::NormalizeNamePart(uint32_t length, uint8_t * value,
+    uint8_t * normalized, uint32_t * flags)
+{
+    bool has_letter = false;
+    bool has_number = false;
+    bool has_special = false;
+    bool has_dash = false;
+    bool has_non_ascii = false;
+
+    for (uint32_t i = 0; i < length; i++)
+    {
+        uint8_t c = value[i];
+        if (c >= 'A' && c <= 'Z')
+        {
+            c += 'a' - 'A';
+            has_letter = true;
+        }
+        else if (c >= 'a' && c <= 'z')
+        {
+            has_letter = true;
+        }
+        else if (c >= '0' && c <= '9')
+        {
+            has_number = true;
+        }
+        else if (c == '-' || c == '_')
+        {
+            has_dash = true;
+        }
+        else if (c > 127)
+        {
+            has_non_ascii = true;
+        }
+        else if (c <= ' ' || c == 127 || c == '"' || c == ',')
+        {
+            c = '?';
+            has_special = true;
+        }
+        else
+        {
+            has_special = true;
+        }
+        normalized[i] = c;
+    }
+    normalized[length] = 0;
+
+    if (flags != NULL)
+    {
+        *flags = 0;
+
+        if (has_non_ascii)
+        {
+            *flags += 1;
+        }
+        else if (has_special)
+        {
+            *flags += 2;
+        }
+
+        if (has_letter)
+        {
+            *flags += 64;
+        }
+        if (has_number)
+        {
+            *flags += 128;
+        }
+        if (has_dash)
+        {
+            *flags += 256;
+        }
+    }
+}
+
+
 
 static char const *  valid_tld[] = { 
     "aaa",

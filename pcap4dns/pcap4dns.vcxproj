@@ -142,6 +142,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DnsStatHash.h" />
     <ClInclude Include="DnsStats.h" />
     <ClInclude Include="linktype.h" />
     <ClInclude Include="pcap_reader.h" />
@@ -152,6 +153,7 @@
     <ClCompile Include="DnsStats.cpp" />
     <ClCompile Include="pcap4dns.cpp" />
     <ClCompile Include="pcap_reader.cpp" />
+    <ClCompile Include="DnsStatHash.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

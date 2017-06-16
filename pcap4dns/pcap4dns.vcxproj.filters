@@ -33,6 +33,9 @@
     <ClInclude Include="DnsStats.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DnsStatHash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DnsStats.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DnsStatHash.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
