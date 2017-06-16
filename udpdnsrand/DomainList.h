@@ -19,7 +19,7 @@ public:
     DomainList();
     ~DomainList();
 
-    bool Init(char * namelist); /* init generation with list of names */
+    bool Init(char * namelist, int nb_names); /* init generation with list of names */
 
     char const * GetRandomDomain();
 

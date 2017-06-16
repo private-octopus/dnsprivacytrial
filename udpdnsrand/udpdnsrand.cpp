@@ -85,7 +85,7 @@
 
 int main(int argc, char ** argv)
 {
-    char * dictionary_name = (char *) "domains.txt";
+    char * dictionary_name = (char *) "domains.csv";
     DomainList domainList;
     DnsGenRandom domainGen(&domainList);
     char * ip_address_text = (char *) "192.168.1.254";
@@ -97,6 +97,7 @@ int main(int argc, char ** argv)
     int nb_packets = 16;
     int nb_packets_sent = 0;
     int nb_time_out = 0;
+    int nb_names = 0;
     SOCKET_TYPE fd = INVALID_SOCKET;
     WSA_START_DATA wsaData;
     int nb_packets_in_transit = 0;
@@ -128,6 +129,17 @@ int main(int argc, char ** argv)
                 {
                     fprintf(stderr, "Invalid number of packets: %s\n", argv[3]);
                     ret = false;
+                }
+
+                if (argc > 4)
+                {
+                    nb_names = atoi(argv[4]);
+
+                    if (nb_names <= 0)
+                    {
+                        fprintf(stderr, "Invalid number of names: %s\n", argv[4]);
+                        ret = false;
+                    }
                 }
             }
         }
@@ -168,7 +180,7 @@ int main(int argc, char ** argv)
     /* Load the dictionary */
     if (ret)
     {
-        if (!domainList.Init(dictionary_name))
+        if (!domainList.Init(dictionary_name, nb_names))
         {
             fprintf(stderr, "Could not read the domain list: %s\n", dictionary_name);
             ret = false;
