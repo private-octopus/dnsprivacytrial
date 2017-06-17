@@ -52,6 +52,42 @@ public:
         return ret;
     }
 
+    KeyObj * Retrieve(KeyObj * key)
+    {
+        KeyObj * ret = 0;
+
+        if (key != 0 && tableSize > 0)
+        {
+            uint32_t hash_index = key->Hash() % tableSize;
+
+            for (uint32_t i = 0; i < tableSize; i++)
+            {
+                if (hashTable[hash_index] == NULL)
+                {
+                    /* not found */
+                    break;
+                }
+                else if (key->IsSameKey(hashTable[hash_index]))
+                {
+                    /* found it. Return */
+                    ret = hashTable[hash_index];
+                    break;
+                }
+                else
+                {
+                    hash_index++;
+
+                    if (hash_index >= tableSize)
+                    {
+                        hash_index = 0;
+                    }
+                }
+            }
+        }
+
+        return ret;
+    }
+
     uint32_t GetCount() {
         return tableCount;
     }

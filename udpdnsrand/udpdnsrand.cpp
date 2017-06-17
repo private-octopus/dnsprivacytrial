@@ -88,7 +88,7 @@ int main(int argc, char ** argv)
     char * dictionary_name = (char *) "domains.csv";
     DomainList domainList;
     DnsGenRandom domainGen(&domainList);
-    char * ip_address_text = (char *) "192.168.1.254";
+    char * ip_address_text = (char *) "8.8.8.8";
     struct sockaddr_storage server_address;
     struct sockaddr_storage addr_from;
     socklen_t from_length = 0;
