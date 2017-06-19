@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <algorithm>
+#include <vector>
 #include "../dnsPrivacyTrial/DnsTypes.h"
 #include "DnsStats.h"
 
@@ -1111,7 +1113,7 @@ void DnsStats::NormalizeNamePart(uint32_t length, uint8_t * value,
 
 
 
-static char const *  valid_tld[] = { 
+static char const *  valid_tld[] = {
     "aaa",
     "aarp",
     "abarth",
@@ -1162,6 +1164,7 @@ static char const *  valid_tld[] = {
     "alsace",
     "alstom",
     "am",
+    "americanexpress",
     "americanfamily",
     "amex",
     "amfam",
@@ -1211,6 +1214,7 @@ static char const *  valid_tld[] = {
     "ba",
     "baby",
     "baidu",
+    "banamex",
     "bananarepublic",
     "band",
     "bank",
@@ -1327,7 +1331,6 @@ static char const *  valid_tld[] = {
     "cars",
     "cartier",
     "casa",
-    "case",
     "caseih",
     "cash",
     "casino",
@@ -1343,6 +1346,7 @@ static char const *  valid_tld[] = {
     "ceb",
     "center",
     "ceo",
+    "cern",
     "cern",
     "cf",
     "cfa",
@@ -1412,6 +1416,7 @@ static char const *  valid_tld[] = {
     "courses",
     "cr",
     "credit",
+    "creditcard",
     "creditunion",
     "cricket",
     "crown",
@@ -1711,12 +1716,14 @@ static char const *  valid_tld[] = {
     "ibm",
     "icbc",
     "ice",
+    "icn-2016",
     "icu",
     "id",
     "ie",
     "ieee",
     "ifm",
     "ikano",
+    "il",
     "il",
     "im",
     "imamat",
@@ -1730,7 +1737,6 @@ static char const *  valid_tld[] = {
     "ing",
     "ink",
     "institute",
-    "insurance",
     "insure",
     "int",
     "intel",
@@ -1813,6 +1819,7 @@ static char const *  valid_tld[] = {
     "lamer",
     "lancaster",
     "lancia",
+    "lancome",
     "land",
     "landrover",
     "lanxess",
@@ -1994,6 +2001,7 @@ static char const *  valid_tld[] = {
     "nike",
     "nikon",
     "ninja",
+    "nissan",
     "nissay",
     "nl",
     "no",
@@ -2016,6 +2024,7 @@ static char const *  valid_tld[] = {
     "off",
     "office",
     "okinawa",
+    "olayan",
     "olayangroup",
     "oldnavy",
     "ollo",
@@ -2030,6 +2039,7 @@ static char const *  valid_tld[] = {
     "open",
     "oracle",
     "orange",
+    "ord-2017",
     "org",
     "organic",
     "origins",
@@ -2272,6 +2282,7 @@ static char const *  valid_tld[] = {
     "staples",
     "star",
     "starhub",
+    "statebank",
     "statefarm",
     "statoil",
     "stc",
@@ -2306,6 +2317,7 @@ static char const *  valid_tld[] = {
     "talk",
     "taobao",
     "target",
+    "tatamotors",
     "tatar",
     "tattoo",
     "tax",
@@ -2362,6 +2374,8 @@ static char const *  valid_tld[] = {
     "trading",
     "training",
     "travel",
+    "travelchannel",
+    "travelers",
     "travelersinsurance",
     "trust",
     "trv",
@@ -2434,6 +2448,7 @@ static char const *  valid_tld[] = {
     "warman",
     "watch",
     "watches",
+    "weather",
     "weatherchannel",
     "webcam",
     "weber",
@@ -2477,6 +2492,7 @@ static char const *  valid_tld[] = {
     "xn--3pxu8k",
     "xn--42c2d9a",
     "xn--45q11c",
+    "xn--45brj9c",
     "xn--4gbrim",
     "xn--54b7fta0cc",
     "xn--55qx5d",
@@ -2485,11 +2501,15 @@ static char const *  valid_tld[] = {
     "xn--6frz82g",
     "xn--6qq986b3xl",
     "xn--80adxhks",
+    "xn--80ao21a",
+    "xn--80aqecdr1a",
     "xn--80asehdb",
     "xn--80aswg",
     "xn--8y0a063a",
     "xn--90a3ac",
+    "xn--90ae",
     "xn--90ais",
+    "xn--9dbq2a",
     "xn--9et52u",
     "xn--9krt00a",
     "xn--b4w605ferd",
@@ -2500,20 +2520,26 @@ static char const *  valid_tld[] = {
     "xn--cg4bki",
     "xn--clchc0ea0b2g2a9gcd",
     "xn--czr694b",
+    "xn--czrs0t",
     "xn--czru2d",
+    "xn--d1acj3b",
     "xn--d1alf",
     "xn--e1a4c",
-    "xn--eckvdtc9d",
     "xn--efvy88h",
     "xn--estv75g",
-    "xn--fct429k",
-    "xn--fiq64b",
+    "xn--fiq228c5hs",
     "xn--fiqs8s",
+    "xn--fiq228c5hs",
+    "xn--fiq64b",
+    "xn--fiqz9s",
+    "xn--fjq720a",
+    "xn--flw351e",
     "xn--flw351e",
     "xn--fpcrj9c3d",
-    "xn--fzc2c9e2c",
+    "xn--fpcrj9c3d",
     "xn--fzys8d69uvgm",
     "xn--g2xx48c",
+    "xn--gckr3f0f",
     "xn--gecrj9c",
     "xn--gk3at1e",
     "xn--h2brj9c",
@@ -2528,27 +2554,33 @@ static char const *  valid_tld[] = {
     "xn--jvr189m",
     "xn--kcrx77d1x4a",
     "xn--kprw13d",
-    "xn--kpry57d",
+    "xn--kpu716f",
     "xn--kput3i",
     "xn--l1acc",
     "xn--lgbbat1ad8j",
-    "xn--mgba3a3ejt",
+    "xn--mgb9awbf",
     "xn--mgba3a4f16a",
-    "xn--mgbaam7a8h",
+    "xn--mgba7c0bbn0a",
     "xn--mgbab2bd",
+    "xn--mgbai9azgqp6j",
+    "xn--mgbai9azgqp6j",
     "xn--mgbayh7gpa",
     "xn--mgbb9fbpob",
+    "xn--mgbbh1a71e",
     "xn--mgbca7dzdo",
     "xn--mgberp4a5d4ar",
+    "xn--mgbi4ecexp",
     "xn--mgbpl2fh",
     "xn--mgbt3dhd",
-    "xn--mgbtx2b",
     "xn--mgbx4cd0ab",
     "xn--mk1bu44c",
     "xn--mxtq1m",
     "xn--ngbc5azd",
     "xn--ngbe9e0a",
+    "xn--ngbc5azd",
     "xn--node",
+    "xn--node",
+    "xn--nqv7f",
     "xn--nqv7fs00ema",
     "xn--nyqy26a",
     "xn--o3cw4h",
@@ -2562,18 +2594,19 @@ static char const *  valid_tld[] = {
     "xn--qcka1pmc",
     "xn--qxam",
     "xn--rhqv96g",
+    "xn--rhqv96g",
     "xn--rovu88b",
+    "xn--s9brj9c",
     "xn--ses554g",
     "xn--t60b56a",
     "xn--tckwe",
     "xn--tiq49xqyj",
     "xn--unup4y",
-    "xn--vermgensberatung-pwb",
+    "xn--vermgensberater-ctb",
     "xn--vhquv",
     "xn--vuq861b",
     "xn--w4r85el8fhu5dnra",
     "xn--w4rs40l",
-    "xn--wgbh1c",
     "xn--wgbl6a",
     "xn--xhq521b",
     "xn--xkc2al3hye2a",
@@ -2816,10 +2849,52 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
     SubmitRegistryNumber(REGISTRY_DNS_error_flag, error_flags);
 }
 
+bool CompareRegistryEntries(dns_registry_entry_t * x, dns_registry_entry_t * y)
+{
+    bool ret = false;
+
+    if (x->registry_id < y->registry_id)
+    {
+        ret = true;
+    }
+    else if (x->registry_id == y->registry_id)
+    {
+        if (x->key_type < y->key_type)
+        {
+            ret = true;
+        }
+        else if (x->key_type == y->key_type)
+        {
+            if (x->key_type == 0)
+            {
+                ret = (x->key_number < y->key_number);
+            }
+            else
+            {
+                for (int i = 0; i < sizeof(x->key_value); i++)
+                {
+                    if (x->key_value[i] < y->key_value[i])
+                    {
+                        ret = true;
+                        break;
+                    }
+                    else if (x->key_value[i] != y->key_value[i])
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
 bool DnsStats::ExportToCsv(char * fileName)
 {
     FILE* F;
     dns_registry_entry_t *entry;
+    std::vector<dns_registry_entry_t *> lines(hashTable.GetCount());
 #ifdef WINDOWS
     errno_t err = fopen_s(&F, fileName, "w");
     bool ret = (err == 0);
@@ -2830,16 +2905,35 @@ bool DnsStats::ExportToCsv(char * fileName)
     ret = (F != NULL);
 #endif
 
+    if (ret)
+    {
+        int vector_index = 0;
 
+        for (uint32_t i = 0; i < hashTable.GetSize(); i++)
+        {
+            entry = hashTable.GetEntry(i);
+            if (entry != NULL)
+            {
+                lines[vector_index] = entry;
+                vector_index++;
+            }
+        }
+        std::sort(lines.begin(), lines.end(), CompareRegistryEntries);
+    }
 
     if (ret)
     {
+#if 0
         for (uint32_t i = 0; i < hashTable.GetSize(); i++)
         {
             entry = hashTable.GetEntry(i);
 
             if (entry != NULL)
             {
+#else
+        for (dns_registry_entry_t * &entry : lines)
+        {
+#endif
                 if (entry->registry_id < RegistryNameByIdNb)
                 {
                     fprintf(F, """%s"",", RegistryNameById[entry->registry_id]);
@@ -2906,7 +3000,9 @@ bool DnsStats::ExportToCsv(char * fileName)
                 }
 
                 fprintf(F, """%d""\n", entry->count);
+#if 0
             }
+#endif
         }
 
         fclose(F);

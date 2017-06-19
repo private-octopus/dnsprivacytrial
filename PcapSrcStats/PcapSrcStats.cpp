@@ -19,7 +19,7 @@ public:
     {
         if (hash == 0)
         {
-            uint32_t l = (address_type == 4) ? 4 : 20;
+            uint32_t l = (address_type == 4) ? 4 : 16;
 
             hash = l;
 
@@ -38,7 +38,7 @@ public:
 
         if (ret)
         {
-            uint32_t l = (address_type == 4) ? 4 : 20;
+            uint32_t l = (address_type == 4) ? 4 : 16;
             ret = memcmp(address, key->address, l) == 0;
         }
 
@@ -73,18 +73,18 @@ public:
         if (address_type == 4)
         {
             (void) memcpy(this->address, address, 4);
-            (void)memset(this->address + 4, 0, 16);
+            (void)memset(this->address + 4, 0, 12);
         }
         else
         {
-            (void)memcpy(this->address, address, 20);
+            (void)memcpy(this->address, address, 16);
         }
     }
 
     uint32_t hash;
     uint32_t count;
     uint32_t address_type;
-    uint8_t address[20];
+    uint8_t address[16];
 };
 
 bool ExportResults(char * fileName, 
@@ -290,7 +290,7 @@ int main(int argc, char ** argv)
         }
         
         printf("Retrieved %d records from %s, obtained %d addresses.\n",
-            nb_extracts_read, extract_file, good_table.GetCount());
+            nb_records_read, input_file, good_table.GetCount());
     }
 
     /* Write the report by going through the source table, and putting the result in CSV file */
