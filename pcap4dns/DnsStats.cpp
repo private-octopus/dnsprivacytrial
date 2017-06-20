@@ -2787,6 +2787,14 @@ void DnsStats::SubmitPacket(uint8_t * packet, uint32_t length)
         SubmitRegistryNumber(REGISTRY_DNS_OpCodes, opcode);
         CheckOpCode(opcode);
 
+        for (uint32_t i = 0; i < 7; i++)
+        {
+            if ((flags & (1 << i)) != 0)
+            {
+                SubmitRegistryNumber(REGISTRY_DNS_Header_Flags, i);
+            }
+        }
+
         parse_index = 12;
     }
 
@@ -2923,86 +2931,77 @@ bool DnsStats::ExportToCsv(char * fileName)
 
     if (ret)
     {
-#if 0
-        for (uint32_t i = 0; i < hashTable.GetSize(); i++)
-        {
-            entry = hashTable.GetEntry(i);
-
-            if (entry != NULL)
-            {
-#else
         for (dns_registry_entry_t * &entry : lines)
         {
-#endif
-                if (entry->registry_id < RegistryNameByIdNb)
-                {
-                    fprintf(F, """%s"",", RegistryNameById[entry->registry_id]);
-                }
-                else
-                {
-                    fprintf(F, """%d"",", entry->registry_id);
-                }
-                
-                if (entry->key_type == 0)
-                {
-                    fprintf(F, """%d"",", entry->key_number);
-                }
-                else
-                {
-                    fprintf(F, """%s"",", entry->key_value);
-                }
-
-                if (entry->registry_id == REGISTRY_DNS_RRType ||
-                    entry->registry_id == REGISTRY_DNS_Q_RRType)
-                {
-                    PrintRRType(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_CLASSES ||
-                    entry->registry_id == REGISTRY_DNS_Q_CLASSES)
-                {
-                    PrintRRClass(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_OpCodes)
-                {
-                    PrintOpCode(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_RCODES)
-                {
-                    PrintRCode(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
-                {
-                    PrintDnsFlags(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_EDNS_Header_Flags)
-                {
-                    PrintEDnsFlags(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNSSEC_Algorithm_Numbers)
-                {
-                    PrintKeyAlgorithm(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_EDNS_OPT_CODE)
-                {
-                    PrintOptOption(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_DNS_error_flag)
-                {
-                    PrintErrorFlags(F, entry->key_number);
-                }
-                else if (entry->registry_id == REGISTRY_TLD_error_class)
-                {
-                    PrintTldErrorClass(F, entry->key_number);
-                }
-                else 
-                {
-                    fprintf(F, """ "",");
-                }
-
-                fprintf(F, """%d""\n", entry->count);
-#if 0
+            if (entry->registry_id < RegistryNameByIdNb)
+            {
+                fprintf(F, "%d, ""%s"",", entry->registry_id,
+                    RegistryNameById[entry->registry_id]);
             }
-#endif
+            else
+            {
+                fprintf(F, "%d, %d,", entry->registry_id, entry->registry_id);
+            }
+
+            fprintf(F, "%d,", entry->key_type);
+
+            if (entry->key_type == 0)
+            {
+                fprintf(F, "%d,", entry->key_number);
+            }
+            else
+            {
+                fprintf(F, """%s"",", entry->key_value);
+            }
+
+            if (entry->registry_id == REGISTRY_DNS_RRType ||
+                entry->registry_id == REGISTRY_DNS_Q_RRType)
+            {
+                PrintRRType(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNS_CLASSES ||
+                entry->registry_id == REGISTRY_DNS_Q_CLASSES)
+            {
+                PrintRRClass(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNS_OpCodes)
+            {
+                PrintOpCode(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNS_RCODES)
+            {
+                PrintRCode(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNS_Header_Flags)
+            {
+                PrintDnsFlags(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_EDNS_Header_Flags)
+            {
+                PrintEDnsFlags(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNSSEC_Algorithm_Numbers)
+            {
+                PrintKeyAlgorithm(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_EDNS_OPT_CODE)
+            {
+                PrintOptOption(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_DNS_error_flag)
+            {
+                PrintErrorFlags(F, entry->key_number);
+            }
+            else if (entry->registry_id == REGISTRY_TLD_error_class)
+            {
+                PrintTldErrorClass(F, entry->key_number);
+            }
+            else
+            {
+                fprintf(F, """ "",");
+            }
+
+            fprintf(F, "%d\n", entry->count);
         }
 
         fclose(F);
