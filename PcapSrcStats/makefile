@@ -4,9 +4,9 @@ RM=rm -f
 CPPFLAGS=-g 
 LDFLAGS=-g
 
-SRCS=pcap4dns.cpp DnsStats.cpp pcap_reader.cpp DnsStatHash.cpp
+SRCS=PcapSrcStats.cpp ../pcap4dns/pcap_reader.cpp
 OBJS=$(patsubst %.cpp,%.o,$(SRCS))
-DEPEND=DnsStats.h pcap_reader.h linktype.h DnsStatHash.h
+DEPEND=../pcap4dns/pcap_reader.cpp.h
 
 all: pcap4dns
 
