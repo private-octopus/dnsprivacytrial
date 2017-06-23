@@ -3,7 +3,8 @@
 // are changed infrequently
 //
 
-#pragma once
+#ifndef DNSPRIVACYTRIAL_STDAFX_H
+#define DNSPRIVACYTRIAL_STDAFX_H
 
 #include "targetver.h"
 
@@ -13,3 +14,4 @@
 
 
 // TODO: reference additional headers your program requires here
+#endif /* DNSPRIVACYTRIAL_STDAFX_H */

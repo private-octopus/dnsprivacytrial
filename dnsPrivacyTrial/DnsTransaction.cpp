@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <algorithm>
+#include "CdnParser.h"
 #include "DnsTracesUtil.h"
 #include "DnsTransaction.h"
 
@@ -166,17 +167,19 @@ void DnsTransaction::PrintCsvFileHeader(FILE * F)
 {
     fprintf(F, "clientIp, serverIp, query_id, initial_time, query_name, query_rtype, ");
     fprintf(F, "nb_repeats, last_repeat_time, nb_response, first_response_time, ");
-    fprintf(F, "cname_count, cname, query_length, response_length, a_val, response_time, repeat_time\n");
+    fprintf(F, "cname_count, cname, cdn, query_length, response_length, a_val, response_time, repeat_time\n");
 }
 
 int DnsTransaction::PrintToCsvFile(FILE * F) const
 {
     const char * rtype_name = DnsDissectorLine::RTypeToText(query_rtype);
     int ret = fprintf(F,
-        """%s"",""%s"",""%d"",""%lld"",""%s"",""%s"",""%d"",""%lld"",""%d"",""%lld"",""%d"",""%s"",""%d"",""%d"",""%s"", ""%lld"", ""%lld""\n",
+        """%s"",""%s"",""%d"",""%lld"",""%s"",""%s"",""%d"",""%lld"",""%d"",""%lld"",""%d"",""%s"",""%s"",""%d"",""%d"",""%s"", ""%lld"", ""%lld""\n",
         clientIp, serverIp, query_id, initial_time, query_name, rtype_name,
         nb_repeats, last_repeat_time, nb_response, first_response_time,
-        cname_count, (cname == NULL) ? "" : cname, query_length, response_length,
+        cname_count, (cname == NULL) ? "" : cname, 
+        CdnParser::GetCdnName(CdnParser::FindCdn((cname == NULL) ? query_name : cname)),
+        query_length, response_length,
         (a_val == NULL) ? "" : a_val, 
         (first_response_time > 0)? first_response_time- initial_time:0,
         (last_repeat_time > 0) ? last_repeat_time - initial_time : 0);

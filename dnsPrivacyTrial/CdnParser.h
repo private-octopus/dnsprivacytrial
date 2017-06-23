@@ -18,48 +18,44 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef PCAPCSVREADER_H
-#define PCAPCSVREADER_H
+#ifndef CDNPARSER_H
+#define CDNPARSER_H
 
-#include <stdio.h>
-
-typedef struct _pcap_csv_line
+enum CdnEnum
 {
-    int registry_id;
-    char registry_name[64];
-    int key_type;
-    union
-    {
-        int key_number;
-        char key_value[64];
-    };
-    char key_name[64];
-    int count;
-} pcap_csv_line;
-
-
-class PcapCsvReader
-{
-public:
-    PcapCsvReader();
-    ~PcapCsvReader();
-
-    bool Open(char * filekey_name);
-
-    void ReadNext();
-
-    bool IsLower(pcap_csv_line * low_line);
-
-    bool IsEqual(pcap_csv_line * low_line);
-
-    pcap_csv_line line;
-    FILE * F;
-    bool is_finished;
-    char buffer[512];
-
-private:
-    int read_number(int* number, int start);
-    int read_string(char* text, int text_max, int start);
+    cdn_null = 0,
+    cdn_akamai,
+    cdn_cloudflare,
+    cdn_disney,
+    cdn_fastly,
+    cdn_google,
+    cdn_amazon,
+    cdn_microsoft,
+    cdn_facebook,
+    cdn_verizon,
+    cdn_level3,
+    cdn_stackpath,
+    cdn_limelight,
+    cdn_max
 };
 
-#endif
+typedef struct _cndsuffix
+{
+    char const * suffix;
+    CdnEnum cdn;
+} CdnSuffix;
+
+class CdnParser
+{
+public:
+    CdnParser();
+    ~CdnParser();
+
+    static CdnEnum FindCdn(char const * cname);
+    static char const * GetCdnName(CdnEnum cdn);
+private:
+    static CdnEnum FindCdnBySuffix(char const * cname);
+};
+
+
+#endif /* CDNPARSER_H */

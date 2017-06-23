@@ -18,7 +18,8 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef DNSDISSECTORLINE_H
+#define DNSDISSECTORLINE_H
 
 #include "DnsTypes.h"
 
@@ -109,3 +110,4 @@ private:
 
 };
 
+#endif /* DNSDISSECTORLINE_H */

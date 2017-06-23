@@ -142,6 +142,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CdnParser.h" />
     <ClInclude Include="DnsDissectorLine.h" />
     <ClInclude Include="DnsTraces.h" />
     <ClInclude Include="DnsTracesUtil.h" />
@@ -151,6 +152,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CdnParser.cpp" />
     <ClCompile Include="DnsDissectorLine.cpp" />
     <ClCompile Include="dnsPrivacyTrial.cpp" />
     <ClCompile Include="DnsTraces.cpp" />

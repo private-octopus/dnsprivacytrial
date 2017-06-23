@@ -18,7 +18,9 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef DNSTRACESUTIL_H
+#define DNSTRACESUTIL_H
+
 #include <string.h>
 
 template <typename OBJTYPE>
@@ -273,3 +275,5 @@ unsigned int BasicHash(unsigned int h, const unsigned char * x, unsigned int l);
 unsigned int BasicHash(unsigned int h, int x);
 
 unsigned int BasicHash(unsigned int h, const char * s);
+
+#endif DNSTRACESUTIL_H

@@ -18,7 +18,8 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef DNSTRANSACTION_H
+#define DNSTRANSACTION_H
 /*
  * This is the result from a DNS analysis.
  * A transaction is defined by:
@@ -71,5 +72,7 @@ private:
     int query_length;
     int response_length;
     char * a_val;
+    char * cdn_name;
 };
 
+#endif /* DNSTRANSACTION_H */

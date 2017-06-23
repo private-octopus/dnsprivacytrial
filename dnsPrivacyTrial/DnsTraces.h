@@ -18,7 +18,9 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef DNSTRACES_H
+#define DNSTRACES_H
+
 #include "DnsDissectorLine.h"
 #include "DnsTransaction.h"
 #include "DnsTracesUtil.h"
@@ -61,3 +63,4 @@ private:
     bool CheckTransactionAllocation(int n);
 };
 
+#endif /* DNSTRACES_H */
