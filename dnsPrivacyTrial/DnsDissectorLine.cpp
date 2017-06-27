@@ -136,8 +136,8 @@ int DnsDissectorLine::ParseCsvLine(char * line, int linemax)
     return position;
 }
 
-static char StandardQuery[] = "Standard query ";
-static char StandardQueryResponse[] = "Standard query response ";
+static char const * StandardQuery = "Standard query ";
+static char const * StandardQueryResponse = "Standard query response ";
 
 int DnsDissectorLine::ParseDnsDissector(char * line, int linemax, int position)
 {
@@ -274,7 +274,7 @@ int DnsDissectorLine::ParseHexNumber(char * line, int linemax, int position, int
 
 static struct dns_rtype_list {
     DnsRtype rtype;
-    char * rtype_name;
+    char const * rtype_name;
 } rtype_list[] = {
     { DnsRtype_A, "A"},
     { DnsRtype_NS, "NS"}, 
@@ -331,13 +331,13 @@ int DnsDissectorLine::ParseRType(char * line, int linemax, int position, DnsRtyp
 
 const char * DnsDissectorLine::RTypeToText(DnsRtype v)
 {
-    char * s = "UNKNOWN";
+    char * s = (char *) "UNKNOWN";
 
     for (int i = 0; i < rtype_list_count; i++)
     {
         if (rtype_list[i].rtype == v)
         {
-            s = rtype_list[i].rtype_name;
+            s = (char *) rtype_list[i].rtype_name;
             break;
         }
     }
