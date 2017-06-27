@@ -8,10 +8,10 @@ SRCS=dnsPrivacyTrial.cpp CdnParser.cpp DnsDissectorLine.cpp DnsTraces.cpp DnsTra
 OBJS=$(patsubst %.cpp,%.o,$(SRCS))
 DEPEND= CdnParser.h DnsDissectorLine.h DnsTraces.h DnsTracesUtil.h DnsTransaction.h DnsTypes.h
 
-all: pcap4dns
+all: dnsPrivacyTrial 
 
 dnsPrivacyTrial: $(OBJS)
-	$(CXX) $(LDFLAGS) -o pcap4dns $(OBJS)
+	$(CXX) $(LDFLAGS) -o dnsPrivacyTrial $(OBJS)
  
 clean:
 	$(RM) $(OBJS)

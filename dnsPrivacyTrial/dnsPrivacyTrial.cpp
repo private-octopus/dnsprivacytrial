@@ -28,7 +28,9 @@
 // * Privacy delta characterization: difference of information between the name and the corresponding IP.
 //
 
+#ifdef WIN32
 #include "stdafx.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
