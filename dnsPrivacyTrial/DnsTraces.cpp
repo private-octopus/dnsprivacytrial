@@ -108,7 +108,6 @@ int DnsTraces::SaveTransactionsToCsv(char * fname)
     {
         ret = -1;
     }
-    else
 #endif
     else
     {
