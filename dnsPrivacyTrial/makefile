@@ -4,7 +4,7 @@ RM=rm -f
 CPPFLAGS=-g 
 LDFLAGS=-g
 
-SRCS=dnsPrivacyTrial.cpp CdnParser.cpp DnsDissectorLine.cpp DnsTraces.cpp DnsTracesUtil.cpp DnsTransaction.cpp stdafx.cpp 
+SRCS=dnsPrivacyTrial.cpp CdnParser.cpp DnsDissectorLine.cpp DnsTraces.cpp DnsTracesUtil.cpp DnsTransaction.cpp  
 OBJS=$(patsubst %.cpp,%.o,$(SRCS))
 DEPEND= CdnParser.h DnsDissectorLine.h DnsTraces.h DnsTracesUtil.h DnsTransaction.h DnsTypes.h
 
