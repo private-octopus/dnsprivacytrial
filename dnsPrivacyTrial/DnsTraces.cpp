@@ -44,12 +44,19 @@ int DnsTraces::AddTraces(char * fname)
     int ret = 0;
     FILE * F;
     char buffer[1024];
+#ifdef WINDOWS
     errno_t er = fopen_s(&F, fname, "r");
-
     if (er != 0 || F == NULL)
     {
         ret = -1;
     }
+#else
+    F = fopen(fname, "r");
+    if (F == NULL)
+    {
+        ret = -1;
+    }
+#endif
     else
     {
         while (fgets(buffer, sizeof(buffer), F))
@@ -88,12 +95,21 @@ int DnsTraces::SaveTransactionsToCsv(char * fname)
 {
     int ret = 0;
     FILE * F;
+#ifdef WINDOWS
     errno_t er = fopen_s(&F, fname, "w");
 
     if (er != 0 || F == NULL)
     {
         ret = -1;
     }
+#else
+    F = fopen(fname, "w");
+    if (F == NULL)
+    {
+        ret = -1;
+    }
+    else
+#endif
     else
     {
         DnsTransaction::PrintCsvFileHeader(F);

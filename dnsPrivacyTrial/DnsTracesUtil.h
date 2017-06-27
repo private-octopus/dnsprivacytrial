@@ -276,4 +276,4 @@ unsigned int BasicHash(unsigned int h, int x);
 
 unsigned int BasicHash(unsigned int h, const char * s);
 
-#endif DNSTRACESUTIL_H
+#endif /* DNSTRACESUTIL_H */
