@@ -367,6 +367,7 @@ int DnsDissectorLine::ParseSpacedString(char * line, int linemax, int position, 
 
         if (*s != NULL)
         {
+#ifdef WINDOWS
             errno_t er = memcpy_s(*s, nb_chars + 1, &line[first_position], nb_chars);
 
             if (er != 0)
@@ -379,6 +380,10 @@ int DnsDissectorLine::ParseSpacedString(char * line, int linemax, int position, 
             {
                 (*s)[nb_chars] = 0;
             }
+#else
+            memcpy(*s, &line[first_position], nb_chars);
+            (*s)[nb_chars] = 0;
+#endif
         }
     }
 
@@ -481,6 +486,7 @@ int DnsDissectorLine::ParseQuotedString(char * line, int linemax, int position, 
 
         if (*s != NULL)
         {
+#ifdef WINDOWS
             errno_t er = memcpy_s(*s, nb_chars + 1, &line[first_position], nb_chars);
 
             if (er != 0)
@@ -493,6 +499,10 @@ int DnsDissectorLine::ParseQuotedString(char * line, int linemax, int position, 
             {
                 (*s)[nb_chars] = 0;
             }
+#else
+            memcpy(*s, &line[first_position], nb_chars);
+            (*s)[nb_chars] = 0;
+#endif
         }
     }
 
@@ -555,7 +565,7 @@ int DnsDissectorLine::SkipSpacedString(char * line, int linemax, int position, i
 int DnsDissectorLine::SkipSpaces(char * line, int linemax, int position)
 {
     while (position < linemax && line[position] != 0 &&
-        (line[position] == ' ' || line[position] == '/t'))
+        (line[position] == ' ' || line[position] == '\t'))
     {
         position++;
     }
@@ -572,7 +582,7 @@ int DnsDissectorLine::SkipQuoteAndBlanks(char * line, int linemax, int position)
             position++;
             break;
         }
-        else if (line[position] == ' ' || line[position] == '/t' || line[position] == ',')
+        else if (line[position] == ' ' || line[position] == '\t' || line[position] == ',')
         {
             position++;
         }
