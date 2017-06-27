@@ -33,6 +33,7 @@ char * CopyString(const char * s)
 
         if (x != NULL)
         {
+#ifdef WINDOWS
             errno_t er = memcpy_s(x, l + 1, s, l);
             if (er != 0)
             {
@@ -43,6 +44,10 @@ char * CopyString(const char * s)
             {
                 x[l] = 0;
             }
+#else
+            memcpy(x, s, l);
+            x[l] = 0;
+#endif
         }
     }
 
